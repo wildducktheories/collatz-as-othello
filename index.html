@@ -1,0 +1,1515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Othello Board Collatz Cycle Explorer</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: #f5f5f5;
+      padding: 20px;
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 30px;
+      border-radius: 8px 8px 0 0;
+    }
+
+    h1 {
+      font-size: 28px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    header p {
+      font-size: 14px;
+      opacity: 0.95;
+    }
+
+    .panel {
+      padding: 25px;
+      border-bottom: 1px solid #e0e0e0;
+    }
+
+    .panel:last-child {
+      border-bottom: none;
+      border-radius: 0 0 8px 8px;
+    }
+
+    .panel h2 {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 15px;
+      color: #333;
+    }
+
+    .panel h3 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 10px;
+      color: #555;
+    }
+
+    .config-panel {
+      background: #fafafa;
+    }
+
+    .input-group {
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+      margin-bottom: 15px;
+    }
+
+    .input-field {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .input-field label {
+      font-size: 13px;
+      font-weight: 500;
+      color: #555;
+    }
+
+    .input-field input {
+      width: 100px;
+      padding: 8px 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+
+    .input-field input:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    button {
+      padding: 10px 18px;
+      border: none;
+      border-radius: 4px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-primary {
+      background: #667eea;
+      color: white;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: #5568d3;
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: #e0e0e0;
+      color: #333;
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background: #d0d0d0;
+    }
+
+    .btn-danger {
+      background: #ef4444;
+      color: white;
+    }
+
+    .btn-danger:hover:not(:disabled) {
+      background: #dc2626;
+    }
+
+    .canvas-container {
+      display: flex;
+      justify-content: center;
+      padding: 30px;
+      overflow: auto;
+      background: #fafafa;
+      min-height: 400px;
+    }
+
+    #board-canvas {
+      border: 2px solid #ddd;
+      border-radius: 4px;
+      background: white;
+      cursor: pointer;
+    }
+
+    .polynomial-display {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 16px;
+      padding: 15px;
+      background: #f9f9f9;
+      border-radius: 4px;
+      overflow-x: auto;
+      border: 1px solid #e0e0e0;
+      min-height: 50px;
+    }
+
+    .control-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .selected-info {
+      padding: 12px;
+      background: #fff9db;
+      border-radius: 4px;
+      margin-bottom: 15px;
+      border-left: 4px solid #fbbf24;
+      font-size: 14px;
+    }
+
+    .validation-error {
+      color: #dc2626;
+      margin-top: 10px;
+      padding: 10px;
+      background: #fee;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+
+    .success-message {
+      color: #059669;
+      margin-top: 10px;
+      padding: 10px;
+      background: #d1fae5;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-top: 10px;
+    }
+
+    .status-active {
+      background: #dbeafe;
+      color: #1e40af;
+    }
+
+    .status-zero {
+      background: #d1fae5;
+      color: #065f46;
+    }
+
+    label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    input[type="checkbox"] {
+      cursor: pointer;
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal.active {
+      display: flex;
+    }
+
+    .modal-content {
+      background: white;
+      padding: 25px;
+      border-radius: 8px;
+      max-width: 400px;
+      width: 90%;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    }
+
+    .modal-content h3 {
+      margin-bottom: 15px;
+      color: #333;
+    }
+
+    .modal-content input {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+      margin: 10px 0;
+    }
+
+    .modal-buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+      justify-content: flex-end;
+    }
+
+    @media (max-width: 768px) {
+      body {
+        padding: 10px;
+      }
+
+      .input-group {
+        flex-direction: column;
+      }
+
+      .input-field input {
+        width: 100%;
+      }
+
+      .control-grid {
+        grid-template-columns: 1fr;
+      }
+
+      header {
+        padding: 20px;
+      }
+
+      h1 {
+        font-size: 22px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Othello Board Collatz Cycle Explorer</h1>
+      <p>Interactive visualization of Collatz-type cycles using the Othello board analogy</p>
+    </header>
+
+    <div class="config-panel panel">
+      <h2>Configuration</h2>
+      <div class="input-group">
+        <div class="input-field">
+          <label>o (odd steps):</label>
+          <input type="number" id="input-o" value="3" min="1">
+        </div>
+        <div class="input-field">
+          <label>e (even steps):</label>
+          <input type="number" id="input-e" value="7" min="1">
+        </div>
+        <div class="input-field">
+          <label>g (odd multiplier):</label>
+          <input type="number" id="input-g" value="5" min="2">
+        </div>
+        <div class="input-field">
+          <label>h (even divisor):</label>
+          <input type="number" id="input-h" value="2" min="2">
+        </div>
+        <div class="input-field">
+          <label>q (odd addend):</label>
+          <input type="number" id="input-q" value="1" min="1">
+        </div>
+        <div class="input-field">
+          <label>x₀ (cycle start):</label>
+          <input type="number" id="input-x0" value="17" min="1">
+        </div>
+      </div>
+      <div class="input-group">
+        <button class="btn-primary" id="init-btn">Initialize Board</button>
+        <button class="btn-secondary" id="example-btn">Load Example (17 Cycle)</button>
+      </div>
+      <div id="validation-message"></div>
+    </div>
+
+    <div class="control-panel panel">
+      <h2>Controls</h2>
+      <div class="selected-info" id="selected-info">
+        No cell selected. Click a cell on the board to select it.
+      </div>
+      <div class="control-grid">
+        <button class="btn-secondary" id="undo-btn" disabled>⟲ Undo</button>
+        <button class="btn-secondary" id="redo-btn" disabled>⟳ Redo</button>
+        <button class="btn-secondary" id="reset-btn" disabled>Reset</button>
+        <label><input type="checkbox" id="auto-cancel" checked> Auto-cancel pairs</label>
+      </div>
+      <h3>Conservation Laws</h3>
+      <div class="control-grid">
+        <button class="btn-primary" id="g-right-btn" disabled>×g Right →</button>
+        <button class="btn-primary" id="g-left-btn" disabled>← ×g Left</button>
+        <button class="btn-primary" id="h-down-btn" disabled>×h Down ↓</button>
+        <button class="btn-primary" id="h-up-btn" disabled>↑ ×h Up</button>
+        <button class="btn-primary" id="special-btn" disabled>Special Collatz</button>
+      </div>
+      <div id="special-info" style="font-size: 12px; margin-top: 8px; color: #666;"></div>
+    </div>
+
+    <div class="canvas-container">
+      <canvas id="board-canvas"></canvas>
+    </div>
+
+    <div class="polynomial-panel panel">
+      <h2>Polynomial Representation</h2>
+      <div class="polynomial-display" id="polynomial-display">
+        No board initialized. Click "Initialize Board" above to start.
+      </div>
+      <div id="polynomial-status"></div>
+    </div>
+
+    <div class="persistence-panel panel">
+      <h2>Save & Share</h2>
+      <div class="control-grid">
+        <button class="btn-secondary" id="copy-url-btn" disabled>📋 Copy URL</button>
+        <button class="btn-secondary" id="save-local-btn" disabled>💾 Save to Browser</button>
+        <button class="btn-secondary" id="load-local-btn">📁 Load from Browser</button>
+        <button class="btn-secondary" id="export-json-btn" disabled>⬇ Export JSON</button>
+        <button class="btn-secondary" id="import-json-btn">⬆ Import JSON</button>
+      </div>
+      <input type="file" id="json-file-input" accept=".json" style="display: none;">
+    </div>
+  </div>
+
+  <!-- Modal for numeric input -->
+  <div id="input-modal" class="modal">
+    <div class="modal-content">
+      <h3 id="modal-title">Enter value</h3>
+      <p id="modal-description"></p>
+      <input type="number" id="modal-input" min="1" value="1">
+      <div class="modal-buttons">
+        <button class="btn-secondary" id="modal-cancel">Cancel</button>
+        <button class="btn-primary" id="modal-confirm">Apply</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    'use strict';
+
+    // ========== BoardState Class ==========
+    class BoardState {
+      constructor(o, e, g, h, q, x0) {
+        this.o = o;
+        this.e = e;
+        this.g = g;
+        this.h = h;
+        this.q = q;
+        this.x0 = x0;
+        this.grid = new Map();
+        this.minCol = -1;
+        this.maxCol = o - 1;
+        this.minRow = 0;
+        this.maxRow = e;
+      }
+
+      get(j, i) {
+        const key = `${j},${i}`;
+        return this.grid.get(key) || 0;
+      }
+
+      set(j, i, count) {
+        const key = `${j},${i}`;
+        if (count === 0) {
+          this.grid.delete(key);
+        } else {
+          this.grid.set(key, count);
+        }
+      }
+
+      add(j, i, count) {
+        this.set(j, i, this.get(j, i) + count);
+      }
+
+      clone() {
+        const newBoard = new BoardState(this.o, this.e, this.g, this.h, this.q, this.x0);
+        newBoard.grid = new Map(this.grid);
+        return newBoard;
+      }
+
+      isZeroState() {
+        for (const [, count] of this.grid) {
+          if (count !== 0) return false;
+        }
+        return true;
+      }
+
+      getPolynomial() {
+        const terms = [];
+        for (const [key, count] of this.grid) {
+          const [j, i] = key.split(',').map(Number);
+          const gPower = this.o - 1 - j;
+          const hPower = i;
+          terms.push({ coeff: count, gPower, hPower, j, i });
+        }
+        return terms.sort((a, b) => {
+          if (b.gPower !== a.gPower) return b.gPower - a.gPower;
+          return a.hPower - b.hPower;
+        });
+      }
+
+      toJSON() {
+        return {
+          o: this.o,
+          e: this.e,
+          g: this.g,
+          h: this.h,
+          q: this.q,
+          x0: this.x0,
+          grid: Array.from(this.grid.entries())
+        };
+      }
+
+      static fromJSON(json) {
+        const board = new BoardState(json.o, json.e, json.g, json.h, json.q, json.x0);
+        board.grid = new Map(json.grid);
+        return board;
+      }
+    }
+
+    // ========== History Class ==========
+    class History {
+      constructor() {
+        this.states = [];
+        this.currentIndex = -1;
+        this.maxSize = 100;
+      }
+
+      push(state) {
+        this.states = this.states.slice(0, this.currentIndex + 1);
+        this.states.push(state.clone());
+        if (this.states.length > this.maxSize) {
+          this.states.shift();
+        } else {
+          this.currentIndex++;
+        }
+      }
+
+      canUndo() {
+        return this.currentIndex > 0;
+      }
+
+      canRedo() {
+        return this.currentIndex < this.states.length - 1;
+      }
+
+      undo() {
+        if (this.canUndo()) {
+          this.currentIndex--;
+          return this.states[this.currentIndex].clone();
+        }
+        return null;
+      }
+
+      redo() {
+        if (this.canRedo()) {
+          this.currentIndex++;
+          return this.states[this.currentIndex].clone();
+        }
+        return null;
+      }
+
+      clear() {
+        this.states = [];
+        this.currentIndex = -1;
+      }
+    }
+
+    // ========== Renderer Class ==========
+    class Renderer {
+      constructor(canvas, board) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d');
+        this.board = board;
+        this.cellSize = 60;
+        this.padding = 50;
+        this.pebbleRadius = 8;
+        this.maxPebblesPerCell = 10;
+        this.selectedCell = null;
+        this.hoveredCell = null;
+
+        this.colors = {
+          gridLine: '#cccccc',
+          cellSelected: '#fff9db',
+          cellHover: '#e0f2fe',
+          whitePebble: '#ffffff',
+          whitePebbleStroke: '#333333',
+          blackPebble: '#1f2937',
+          blackPebbleStroke: '#666666',
+          text: '#333333'
+        };
+      }
+
+      calculateDimensions() {
+        const cols = this.board.maxCol - this.board.minCol + 1;
+        const rows = this.board.maxRow - this.board.minRow + 1;
+        return {
+          width: cols * this.cellSize + 2 * this.padding,
+          height: rows * this.cellSize + 2 * this.padding
+        };
+      }
+
+      gridToPixel(j, i) {
+        const x = this.padding + (j - this.board.minCol) * this.cellSize;
+        const y = this.padding + (this.board.maxRow - i) * this.cellSize;
+        return { x, y };
+      }
+
+      pixelToGrid(x, y) {
+        const j = Math.floor((x - this.padding) / this.cellSize) + this.board.minCol;
+        const i = this.board.maxRow - Math.floor((y - this.padding) / this.cellSize);
+
+        if (j >= this.board.minCol && j <= this.board.maxCol &&
+            i >= this.board.minRow && i <= this.board.maxRow) {
+          return { j, i };
+        }
+        return null;
+      }
+
+      render() {
+        const dims = this.calculateDimensions();
+        if (this.canvas.width !== dims.width || this.canvas.height !== dims.height) {
+          this.canvas.width = dims.width;
+          this.canvas.height = dims.height;
+        }
+
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+        this.drawGrid();
+
+        if (this.hoveredCell && (!this.selectedCell || this.hoveredCell.j !== this.selectedCell.j || this.hoveredCell.i !== this.selectedCell.i)) {
+          this.highlightCell(this.hoveredCell.j, this.hoveredCell.i, this.colors.cellHover);
+        }
+
+        if (this.selectedCell) {
+          this.highlightCell(this.selectedCell.j, this.selectedCell.i, this.colors.cellSelected);
+        }
+
+        for (let i = this.board.minRow; i <= this.board.maxRow; i++) {
+          for (let j = this.board.minCol; j <= this.board.maxCol; j++) {
+            const count = this.board.get(j, i);
+            if (count !== 0) {
+              this.drawPebbles(j, i, count);
+            }
+          }
+        }
+
+        this.drawLabels();
+      }
+
+      drawGrid() {
+        this.ctx.strokeStyle = this.colors.gridLine;
+        this.ctx.lineWidth = 1;
+
+        const cols = this.board.maxCol - this.board.minCol + 1;
+        const rows = this.board.maxRow - this.board.minRow + 1;
+
+        for (let col = 0; col <= cols; col++) {
+          const x = this.padding + col * this.cellSize;
+          this.ctx.beginPath();
+          this.ctx.moveTo(x, this.padding);
+          this.ctx.lineTo(x, this.padding + rows * this.cellSize);
+          this.ctx.stroke();
+        }
+
+        for (let row = 0; row <= rows; row++) {
+          const y = this.padding + row * this.cellSize;
+          this.ctx.beginPath();
+          this.ctx.moveTo(this.padding, y);
+          this.ctx.lineTo(this.padding + cols * this.cellSize, y);
+          this.ctx.stroke();
+        }
+      }
+
+      drawPebbles(j, i, count) {
+        const { x, y } = this.gridToPixel(j, i);
+        const centerX = x + this.cellSize / 2;
+        const centerY = y + this.cellSize / 2;
+
+        const isWhite = count > 0;
+        const absCount = Math.abs(count);
+
+        if (absCount <= this.maxPebblesPerCell) {
+          this.drawPebblePattern(centerX, centerY, absCount, isWhite);
+        } else {
+          this.drawPebbleWithCount(centerX, centerY, count, isWhite);
+        }
+      }
+
+      drawPebblePattern(centerX, centerY, count, isWhite) {
+        const patterns = {
+          1: [[0, 0]],
+          2: [[-0.3, 0], [0.3, 0]],
+          3: [[-0.3, -0.3], [0.3, -0.3], [0, 0.3]],
+          4: [[-0.3, -0.3], [0.3, -0.3], [-0.3, 0.3], [0.3, 0.3]],
+          5: [[-0.3, -0.3], [0.3, -0.3], [0, 0], [-0.3, 0.3], [0.3, 0.3]],
+          6: [[-0.3, -0.3], [0, -0.3], [0.3, -0.3], [-0.3, 0.3], [0, 0.3], [0.3, 0.3]],
+          7: [[-0.3, -0.3], [0, -0.3], [0.3, -0.3], [0, 0], [-0.3, 0.3], [0, 0.3], [0.3, 0.3]],
+          8: [[-0.3, -0.3], [0, -0.3], [0.3, -0.3], [-0.3, 0], [0.3, 0], [-0.3, 0.3], [0, 0.3], [0.3, 0.3]],
+          9: [[-0.3, -0.3], [0, -0.3], [0.3, -0.3], [-0.3, 0], [0, 0], [0.3, 0], [-0.3, 0.3], [0, 0.3], [0.3, 0.3]],
+          10: [[-0.35, -0.35], [-0.12, -0.35], [0.12, -0.35], [0.35, -0.35], [-0.35, 0], [0.35, 0], [-0.35, 0.35], [-0.12, 0.35], [0.12, 0.35], [0.35, 0.35]]
+        };
+
+        const pattern = patterns[count] || patterns[1];
+        const scale = this.cellSize * 0.3;
+
+        pattern.forEach(([dx, dy]) => {
+          const px = centerX + dx * scale;
+          const py = centerY + dy * scale;
+          this.drawSinglePebble(px, py, isWhite);
+        });
+      }
+
+      drawSinglePebble(x, y, isWhite) {
+        this.ctx.beginPath();
+        this.ctx.arc(x, y, this.pebbleRadius, 0, 2 * Math.PI);
+
+        if (isWhite) {
+          this.ctx.fillStyle = this.colors.whitePebble;
+          this.ctx.fill();
+          this.ctx.strokeStyle = this.colors.whitePebbleStroke;
+          this.ctx.lineWidth = 2;
+          this.ctx.stroke();
+        } else {
+          this.ctx.fillStyle = this.colors.blackPebble;
+          this.ctx.fill();
+          this.ctx.strokeStyle = this.colors.blackPebbleStroke;
+          this.ctx.lineWidth = 1;
+          this.ctx.stroke();
+        }
+      }
+
+      drawPebbleWithCount(x, y, count, isWhite) {
+        const radius = this.cellSize * 0.35;
+
+        this.ctx.beginPath();
+        this.ctx.arc(x, y, radius, 0, 2 * Math.PI);
+
+        if (isWhite) {
+          this.ctx.fillStyle = this.colors.whitePebble;
+          this.ctx.fill();
+          this.ctx.strokeStyle = this.colors.whitePebbleStroke;
+          this.ctx.lineWidth = 2;
+          this.ctx.stroke();
+          this.ctx.fillStyle = this.colors.text;
+        } else {
+          this.ctx.fillStyle = this.colors.blackPebble;
+          this.ctx.fill();
+          this.ctx.strokeStyle = this.colors.blackPebbleStroke;
+          this.ctx.lineWidth = 1;
+          this.ctx.stroke();
+          this.ctx.fillStyle = this.colors.whitePebble;
+        }
+
+        this.ctx.font = 'bold 14px sans-serif';
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+        this.ctx.fillText(Math.abs(count).toString(), x, y);
+      }
+
+      highlightCell(j, i, color) {
+        const { x, y } = this.gridToPixel(j, i);
+        this.ctx.fillStyle = color;
+        this.ctx.fillRect(x + 1, y + 1, this.cellSize - 2, this.cellSize - 2);
+      }
+
+      drawLabels() {
+        this.ctx.fillStyle = this.colors.text;
+        this.ctx.font = '12px sans-serif';
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+
+        for (let j = this.board.minCol; j <= this.board.maxCol; j++) {
+          const { x } = this.gridToPixel(j, 0);
+          this.ctx.fillText(`j=${j}`, x + this.cellSize / 2, this.padding / 2);
+        }
+
+        this.ctx.textAlign = 'right';
+        for (let i = this.board.minRow; i <= this.board.maxRow; i++) {
+          const { y } = this.gridToPixel(0, i);
+          this.ctx.fillText(`i=${i}`, this.padding * 0.7, y + this.cellSize / 2);
+        }
+      }
+    }
+
+    // ========== ConservationLaws Class ==========
+    class ConservationLaws {
+      constructor(board) {
+        this.board = board;
+      }
+
+      canApplyGMultiplyRight(j, i) {
+        return j < this.board.maxCol && this.board.get(j, i) !== 0;
+      }
+
+      applyGMultiplyRight(j, i, numPebbles) {
+        if (!this.canApplyGMultiplyRight(j, i)) return false;
+
+        const count = this.board.get(j, i);
+        const sign = Math.sign(count);
+        const absAvailable = Math.abs(count);
+
+        if (numPebbles > absAvailable) return false;
+
+        this.board.add(j, i, -sign * numPebbles);
+        this.board.add(j + 1, i, sign * this.board.g * numPebbles);
+
+        return true;
+      }
+
+      canApplyGMultiplyLeft(j, i) {
+        if (j >= this.board.maxCol) return false;
+        const count = this.board.get(j + 1, i);
+        return Math.abs(count) >= this.board.g;
+      }
+
+      applyGMultiplyLeft(j, i, numSets) {
+        if (!this.canApplyGMultiplyLeft(j, i)) return false;
+
+        const count = this.board.get(j + 1, i);
+        const sign = Math.sign(count);
+        const maxSets = Math.floor(Math.abs(count) / this.board.g);
+
+        if (numSets > maxSets) return false;
+
+        this.board.add(j + 1, i, -sign * this.board.g * numSets);
+        this.board.add(j, i, sign * numSets);
+
+        return true;
+      }
+
+      canApplyHMultiplyDown(j, i) {
+        return i > this.board.minRow && this.board.get(j, i) !== 0;
+      }
+
+      applyHMultiplyDown(j, i, numPebbles) {
+        if (!this.canApplyHMultiplyDown(j, i)) return false;
+
+        const count = this.board.get(j, i);
+        const sign = Math.sign(count);
+        const absAvailable = Math.abs(count);
+
+        if (numPebbles > absAvailable) return false;
+
+        // Move DOWN: 1 pebble at (j, i) becomes h pebbles at (j, i-1)
+        this.board.add(j, i, -sign * numPebbles);
+        this.board.add(j, i - 1, sign * this.board.h * numPebbles);
+
+        return true;
+      }
+
+      canApplyHMultiplyUp(j, i) {
+        if (i >= this.board.maxRow) return false;
+        const count = this.board.get(j, i);
+        return Math.abs(count) >= this.board.h;
+      }
+
+      applyHMultiplyUp(j, i, numSets) {
+        if (!this.canApplyHMultiplyUp(j, i)) return false;
+
+        const count = this.board.get(j, i);
+        const sign = Math.sign(count);
+        const maxSets = Math.floor(Math.abs(count) / this.board.h);
+
+        if (numSets > maxSets) return false;
+
+        // Move UP: h pebbles at (j, i) becomes 1 pebble at (j, i+1)
+        this.board.add(j, i, -sign * this.board.h * numSets);
+        this.board.add(j, i + 1, sign * numSets);
+
+        return true;
+      }
+
+      // Special Collatz relations
+      is3x1System() {
+        return this.board.g === this.board.h * this.board.h - 1;
+      }
+
+      is5x1System() {
+        return this.board.g === this.board.h * this.board.h + this.board.h - 1;
+      }
+
+      getSpecialSystemType() {
+        if (this.is3x1System()) return '3x+1';
+        if (this.is5x1System()) return '5x+1';
+        return null;
+      }
+
+      canApplySpecial(j, i) {
+        if (!this.is3x1System() && !this.is5x1System()) return false;
+        if (this.board.get(j, i) === 0) return false;
+        if (j >= this.board.maxCol) return false;
+
+        if (this.is3x1System()) {
+          return i + 2 <= this.board.maxRow;
+        } else if (this.is5x1System()) {
+          return i + 2 <= this.board.maxRow;
+        }
+
+        return false;
+      }
+
+      applySpecial3x1(j, i, numPebbles) {
+        if (!this.is3x1System()) return false;
+        if (j >= this.board.maxCol || i + 2 > this.board.maxRow) return false;
+
+        const count = this.board.get(j, i);
+        const sign = Math.sign(count);
+        const absAvailable = Math.abs(count);
+
+        if (numPebbles > absAvailable) return false;
+
+        // For 3x+1 (g = h² - 1):
+        // Remove pebble from (j, i)
+        // Add same color pebble at (j+1, i+2)
+        // Add opposite color pebble at (j+1, i)
+        this.board.add(j, i, -sign * numPebbles);
+        this.board.add(j + 1, i + 2, sign * numPebbles);
+        this.board.add(j + 1, i, -sign * numPebbles);
+
+        return true;
+      }
+
+      applySpecial5x1(j, i, numPebbles) {
+        if (!this.is5x1System()) return false;
+        if (j >= this.board.maxCol || i + 2 > this.board.maxRow) return false;
+
+        const count = this.board.get(j, i);
+        const sign = Math.sign(count);
+        const absAvailable = Math.abs(count);
+
+        if (numPebbles > absAvailable) return false;
+
+        // For 5x+1 (g = h² + h - 1):
+        // Remove pebble from (j, i)
+        // Add same color pebbles at (j+1, i+2) and (j+1, i+1)
+        // Add opposite color pebble at (j+1, i)
+        this.board.add(j, i, -sign * numPebbles);
+        this.board.add(j + 1, i + 2, sign * numPebbles);
+        this.board.add(j + 1, i + 1, sign * numPebbles);
+        this.board.add(j + 1, i, -sign * numPebbles);
+
+        return true;
+      }
+
+      applySpecial(j, i, numPebbles) {
+        if (this.is3x1System()) {
+          return this.applySpecial3x1(j, i, numPebbles);
+        } else if (this.is5x1System()) {
+          return this.applySpecial5x1(j, i, numPebbles);
+        }
+        return false;
+      }
+    }
+
+    // ========== Persistence Class ==========
+    class Persistence {
+      constructor(app) {
+        this.app = app;
+        this.storageKey = 'othello-collatz-boards';
+      }
+
+      generateURL() {
+        const state = this.app.board.toJSON();
+        const encoded = btoa(JSON.stringify(state));
+        const url = new URL(window.location.href);
+        url.searchParams.set('state', encoded);
+        return url.toString();
+      }
+
+      loadFromURL() {
+        const url = new URL(window.location.href);
+        const encoded = url.searchParams.get('state');
+
+        if (encoded) {
+          try {
+            const json = JSON.parse(atob(encoded));
+            const board = BoardState.fromJSON(json);
+            this.app.board = board;
+            this.app.laws = new ConservationLaws(board);
+            this.app.renderer.board = board;
+            this.app.history.clear();
+            this.app.history.push(board);
+            this.app.initialBoard = board.clone();
+            this.app.render();
+            return true;
+          } catch (e) {
+            console.error('Failed to load state from URL:', e);
+            return false;
+          }
+        }
+
+        return false;
+      }
+
+      copyURL() {
+        const url = this.generateURL();
+        navigator.clipboard.writeText(url).then(() => {
+          alert('✓ URL copied to clipboard! Share this link to save your board configuration.');
+        }).catch(err => {
+          console.error('Failed to copy URL:', err);
+          alert('Failed to copy URL. Please copy manually from the address bar.');
+        });
+      }
+
+      saveToLocalStorage() {
+        const name = prompt('Enter a name for this configuration:', `Config-${Date.now()}`);
+        if (!name) return;
+
+        const saved = this.getSavedBoards();
+        saved[name] = {
+          timestamp: Date.now(),
+          state: this.app.board.toJSON()
+        };
+        localStorage.setItem(this.storageKey, JSON.stringify(saved));
+        alert(`✓ Configuration saved as "${name}"`);
+      }
+
+      loadFromLocalStorage() {
+        const saved = this.getSavedBoards();
+        const names = Object.keys(saved);
+
+        if (names.length === 0) {
+          alert('No saved configurations found.');
+          return;
+        }
+
+        const name = prompt(`Enter configuration name to load:\n\nAvailable: ${names.join(', ')}`);
+        if (!name || !saved[name]) {
+          alert('Configuration not found.');
+          return;
+        }
+
+        const board = BoardState.fromJSON(saved[name].state);
+        this.app.board = board;
+        this.app.laws = new ConservationLaws(board);
+        this.app.renderer.board = board;
+        this.app.history.clear();
+        this.app.history.push(board);
+        this.app.initialBoard = board.clone();
+        this.app.render();
+      }
+
+      getSavedBoards() {
+        const saved = localStorage.getItem(this.storageKey);
+        return saved ? JSON.parse(saved) : {};
+      }
+
+      exportJSON() {
+        const state = this.app.board.toJSON();
+        const json = JSON.stringify(state, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `othello-collatz-${Date.now()}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+
+      importJSON(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+
+          reader.onload = (e) => {
+            try {
+              const json = JSON.parse(e.target.result);
+              const board = BoardState.fromJSON(json);
+              this.app.board = board;
+              this.app.laws = new ConservationLaws(board);
+              this.app.renderer.board = board;
+              this.app.history.clear();
+              this.app.history.push(board);
+              this.app.initialBoard = board.clone();
+              this.app.render();
+              resolve(true);
+            } catch (err) {
+              reject(err);
+            }
+          };
+
+          reader.onerror = reject;
+          reader.readAsText(file);
+        });
+      }
+    }
+
+    // ========== Application Class ==========
+    class Application {
+      constructor() {
+        this.board = null;
+        this.history = new History();
+        this.renderer = null;
+        this.laws = null;
+        this.selectedCell = null;
+        this.initialBoard = null;
+        this.pendingAction = null;
+      }
+
+      initialize(o, e, g, h, q, x0) {
+        if (o < 1 || e < 1 || g < 2 || h < 2 || q < 1 || x0 < 1) {
+          throw new Error('Invalid parameters: all values must be positive, g and h must be at least 2');
+        }
+
+        this.board = new BoardState(o, e, g, h, q, x0);
+        this.generateInitialState();
+
+        const canvas = document.getElementById('board-canvas');
+        this.renderer = new Renderer(canvas, this.board);
+        this.laws = new ConservationLaws(this.board);
+
+        this.initialBoard = this.board.clone();
+        this.history.clear();
+        this.history.push(this.board);
+
+        this.selectedCell = null;
+        this.render();
+        this.enableButtons();
+      }
+
+      generateInitialState() {
+        if (this.board.x0 === 17 && this.board.g === 5 &&
+            this.board.h === 2 && this.board.q === 1 &&
+            this.board.o === 3 && this.board.e === 7) {
+          this.board.set(-1, 0, 17);   // 17g³
+          this.board.set(0, 0, 1);     // g²
+          this.board.set(1, 1, 1);     // gh
+          this.board.set(2, 4, 1);     // h⁴
+          this.board.set(2, 7, -17);   // -17h⁷
+        } else {
+          this.board.set(-1, 0, this.board.x0);
+          this.board.set(this.board.o - 1, this.board.e, -this.board.x0);
+        }
+      }
+
+      applyAction(actionFn, successMessage) {
+        const newBoard = this.board.clone();
+        const newLaws = new ConservationLaws(newBoard);
+
+        if (actionFn(newLaws)) {
+          this.board = newBoard;
+          this.laws = newLaws;
+          this.renderer.board = newBoard;
+          this.history.push(this.board);
+
+          if (this.board.isZeroState()) {
+            setTimeout(() => {
+              alert('🎉 Zero state reached! The cycle has been proven.\n\nAll pebbles have been cancelled through conservation laws.');
+            }, 100);
+          }
+
+          this.render();
+          return true;
+        }
+
+        return false;
+      }
+
+      undo() {
+        const prevBoard = this.history.undo();
+        if (prevBoard) {
+          this.board = prevBoard;
+          this.laws = new ConservationLaws(this.board);
+          this.renderer.board = this.board;
+          this.render();
+        }
+      }
+
+      redo() {
+        const nextBoard = this.history.redo();
+        if (nextBoard) {
+          this.board = nextBoard;
+          this.laws = new ConservationLaws(this.board);
+          this.renderer.board = this.board;
+          this.render();
+        }
+      }
+
+      reset() {
+        if (this.initialBoard) {
+          this.board = this.initialBoard.clone();
+          this.laws = new ConservationLaws(this.board);
+          this.renderer.board = this.board;
+          this.history.clear();
+          this.history.push(this.board);
+          this.selectedCell = null;
+          this.renderer.selectedCell = null;
+          this.render();
+        }
+      }
+
+      render() {
+        if (this.renderer) {
+          this.renderer.render();
+        }
+        this.updatePolynomialDisplay();
+        this.updateControlPanel();
+      }
+
+      updatePolynomialDisplay() {
+        const terms = this.board.getPolynomial();
+        const polynomialStr = this.formatPolynomial(terms);
+        document.getElementById('polynomial-display').textContent = polynomialStr;
+
+        const statusDiv = document.getElementById('polynomial-status');
+        if (this.board.isZeroState()) {
+          statusDiv.innerHTML = '<span class="status-badge status-zero">✓ Zero state reached!</span>';
+        } else {
+          const nonZero = terms.filter(t => t.coeff !== 0).length;
+          statusDiv.innerHTML = `<span class="status-badge status-active">${nonZero} non-zero term${nonZero !== 1 ? 's' : ''}</span>`;
+        }
+      }
+
+      formatPolynomial(terms) {
+        if (terms.length === 0) return '0';
+
+        const parts = terms
+          .filter(t => t.coeff !== 0)
+          .map((t, idx) => {
+            const sign = t.coeff > 0 ? (idx === 0 ? '' : ' + ') : ' - ';
+            const absCoeff = Math.abs(t.coeff);
+            const coeffStr = absCoeff === 1 && (t.gPower > 0 || t.hPower > 0) ? '' : absCoeff.toString();
+
+            let term = coeffStr;
+            if (t.gPower > 0) {
+              term += 'g';
+              if (t.gPower > 1) term += '^' + t.gPower;
+            }
+            if (t.hPower > 0) {
+              term += 'h';
+              if (t.hPower > 1) term += '^' + t.hPower;
+            }
+            if (term === '') term = '1';
+
+            if (t.gPower === 0 && t.hPower === 0 && (t.j !== -1 || t.i !== 0)) {
+              term += 'q';
+            }
+
+            return sign + term;
+          });
+
+        return parts.join('') || '0';
+      }
+
+      updateControlPanel() {
+        document.getElementById('undo-btn').disabled = !this.history.canUndo();
+        document.getElementById('redo-btn').disabled = !this.history.canRedo();
+
+        // Update special system info
+        const specialType = this.laws.getSpecialSystemType();
+        const specialInfo = document.getElementById('special-info');
+        if (specialType) {
+          specialInfo.innerHTML = `<strong>Special System Detected:</strong> ${specialType} (g=${this.board.g}, h=${this.board.h})`;
+        } else {
+          specialInfo.innerHTML = `<em>No special Collatz relation detected (g≠h²-1 and g≠h²+h-1)</em>`;
+        }
+
+        if (this.selectedCell) {
+          const { j, i } = this.selectedCell;
+          const count = this.board.get(j, i);
+          const color = count > 0 ? 'white' : 'black';
+          const gPower = this.board.o - 1 - j;
+          const hPower = i;
+
+          document.getElementById('selected-info').innerHTML =
+            `Selected: (j=${j}, i=${i}) | ${Math.abs(count)} ${color} pebble${Math.abs(count) !== 1 ? 's' : ''} | Term: g^${gPower}·h^${hPower}`;
+
+          document.getElementById('g-right-btn').disabled = !this.laws.canApplyGMultiplyRight(j, i);
+          document.getElementById('g-left-btn').disabled = !this.laws.canApplyGMultiplyLeft(j, i);
+          document.getElementById('h-down-btn').disabled = !this.laws.canApplyHMultiplyDown(j, i);
+          document.getElementById('h-up-btn').disabled = !this.laws.canApplyHMultiplyUp(j, i);
+          document.getElementById('special-btn').disabled = !this.laws.canApplySpecial(j, i);
+        } else {
+          document.getElementById('selected-info').textContent = 'No cell selected. Click a cell on the board to select it.';
+          document.getElementById('g-right-btn').disabled = true;
+          document.getElementById('g-left-btn').disabled = true;
+          document.getElementById('h-down-btn').disabled = true;
+          document.getElementById('h-up-btn').disabled = true;
+          document.getElementById('special-btn').disabled = true;
+        }
+      }
+
+      enableButtons() {
+        document.getElementById('reset-btn').disabled = false;
+        document.getElementById('copy-url-btn').disabled = false;
+        document.getElementById('save-local-btn').disabled = false;
+        document.getElementById('export-json-btn').disabled = false;
+      }
+
+      showInputModal(title, description, max, callback) {
+        const modal = document.getElementById('input-modal');
+        const input = document.getElementById('modal-input');
+
+        document.getElementById('modal-title').textContent = title;
+        document.getElementById('modal-description').textContent = description;
+        input.value = Math.min(1, max);
+        input.max = max;
+
+        modal.classList.add('active');
+        input.focus();
+
+        const confirm = () => {
+          const value = parseInt(input.value);
+          if (value > 0 && value <= max) {
+            modal.classList.remove('active');
+            callback(value);
+          }
+        };
+
+        const cancel = () => {
+          modal.classList.remove('active');
+        };
+
+        document.getElementById('modal-confirm').onclick = confirm;
+        document.getElementById('modal-cancel').onclick = cancel;
+
+        input.onkeypress = (e) => {
+          if (e.key === 'Enter') confirm();
+          if (e.key === 'Escape') cancel();
+        };
+      }
+    }
+
+    // ========== Initialize Application ==========
+    const app = new Application();
+    const persistence = new Persistence(app);
+
+    // Configuration
+    document.getElementById('init-btn').addEventListener('click', () => {
+      const o = parseInt(document.getElementById('input-o').value);
+      const e = parseInt(document.getElementById('input-e').value);
+      const g = parseInt(document.getElementById('input-g').value);
+      const h = parseInt(document.getElementById('input-h').value);
+      const q = parseInt(document.getElementById('input-q').value);
+      const x0 = parseInt(document.getElementById('input-x0').value);
+
+      try {
+        app.initialize(o, e, g, h, q, x0);
+        document.getElementById('validation-message').innerHTML =
+          '<div class="success-message">✓ Board initialized successfully!</div>';
+        setTimeout(() => {
+          document.getElementById('validation-message').innerHTML = '';
+        }, 3000);
+      } catch (err) {
+        document.getElementById('validation-message').innerHTML =
+          `<div class="validation-error">✗ ${err.message}</div>`;
+      }
+    });
+
+    document.getElementById('example-btn').addEventListener('click', () => {
+      document.getElementById('input-o').value = 3;
+      document.getElementById('input-e').value = 7;
+      document.getElementById('input-g').value = 5;
+      document.getElementById('input-h').value = 2;
+      document.getElementById('input-q').value = 1;
+      document.getElementById('input-x0').value = 17;
+      document.getElementById('init-btn').click();
+    });
+
+    // Canvas interaction
+    const canvas = document.getElementById('board-canvas');
+
+    canvas.addEventListener('click', (e) => {
+      if (!app.renderer) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      const cell = app.renderer.pixelToGrid(x, y);
+      if (cell) {
+        app.selectedCell = cell;
+        app.renderer.selectedCell = cell;
+        app.render();
+      }
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+      if (!app.renderer) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      const cell = app.renderer.pixelToGrid(x, y);
+      app.renderer.hoveredCell = cell;
+      app.render();
+    });
+
+    canvas.addEventListener('mouseleave', () => {
+      if (!app.renderer) return;
+      app.renderer.hoveredCell = null;
+      app.render();
+    });
+
+    // Control buttons
+    document.getElementById('undo-btn').addEventListener('click', () => app.undo());
+    document.getElementById('redo-btn').addEventListener('click', () => app.redo());
+    document.getElementById('reset-btn').addEventListener('click', () => app.reset());
+
+    // Conservation law buttons
+    document.getElementById('g-right-btn').addEventListener('click', () => {
+      if (!app.selectedCell) return;
+      const { j, i } = app.selectedCell;
+      const count = Math.abs(app.board.get(j, i));
+
+      app.showInputModal(
+        '×g Right →',
+        `Move how many pebbles to the right? (creates ${app.board.g} pebbles per pebble moved)`,
+        count,
+        (num) => {
+          app.applyAction(laws => laws.applyGMultiplyRight(j, i, num));
+        }
+      );
+    });
+
+    document.getElementById('g-left-btn').addEventListener('click', () => {
+      if (!app.selectedCell) return;
+      const { j, i } = app.selectedCell;
+      const count = Math.abs(app.board.get(j + 1, i));
+      const maxSets = Math.floor(count / app.board.g);
+
+      app.showInputModal(
+        '← ×g Left',
+        `Combine how many sets of ${app.board.g} pebbles into 1? (max: ${maxSets})`,
+        maxSets,
+        (num) => {
+          app.applyAction(laws => laws.applyGMultiplyLeft(j, i, num));
+        }
+      );
+    });
+
+    document.getElementById('h-down-btn').addEventListener('click', () => {
+      if (!app.selectedCell) return;
+      const { j, i } = app.selectedCell;
+      const count = Math.abs(app.board.get(j, i));
+
+      app.showInputModal(
+        '×h Down ↓',
+        `Move how many pebbles down? (creates ${app.board.h} pebbles in square below)`,
+        count,
+        (num) => {
+          app.applyAction(laws => laws.applyHMultiplyDown(j, i, num));
+        }
+      );
+    });
+
+    document.getElementById('h-up-btn').addEventListener('click', () => {
+      if (!app.selectedCell) return;
+      const { j, i } = app.selectedCell;
+      const count = Math.abs(app.board.get(j, i));
+      const maxSets = Math.floor(count / app.board.h);
+
+      app.showInputModal(
+        '↑ ×h Up',
+        `Combine how many sets of ${app.board.h} pebbles into square above? (max: ${maxSets})`,
+        maxSets,
+        (num) => {
+          app.applyAction(laws => laws.applyHMultiplyUp(j, i, num));
+        }
+      );
+    });
+
+    document.getElementById('special-btn').addEventListener('click', () => {
+      if (!app.selectedCell) return;
+      const { j, i } = app.selectedCell;
+      const count = Math.abs(app.board.get(j, i));
+      const specialType = app.laws.getSpecialSystemType();
+
+      if (specialType === '3x+1') {
+        app.showInputModal(
+          'Special Law (3x+1)',
+          `Apply 3x+1 law: moves pebble from (j=${j},i=${i}) to (j=${j+1},i=${i+2}) and adds opposite at (j=${j+1},i=${i}). How many pebbles?`,
+          count,
+          (num) => {
+            app.applyAction(laws => laws.applySpecial(j, i, num));
+          }
+        );
+      } else if (specialType === '5x+1') {
+        app.showInputModal(
+          'Special Law (5x+1)',
+          `Apply 5x+1 law: moves pebble from (j=${j},i=${i}) to (j=${j+1},i=${i+2}) and (j=${j+1},i=${i+1}), adds opposite at (j=${j+1},i=${i}). How many pebbles?`,
+          count,
+          (num) => {
+            app.applyAction(laws => laws.applySpecial(j, i, num));
+          }
+        );
+      }
+    });
+
+    // Persistence buttons
+    document.getElementById('copy-url-btn').addEventListener('click', () => persistence.copyURL());
+    document.getElementById('save-local-btn').addEventListener('click', () => persistence.saveToLocalStorage());
+    document.getElementById('load-local-btn').addEventListener('click', () => persistence.loadFromLocalStorage());
+    document.getElementById('export-json-btn').addEventListener('click', () => persistence.exportJSON());
+    document.getElementById('import-json-btn').addEventListener('click', () => {
+      document.getElementById('json-file-input').click();
+    });
+
+    document.getElementById('json-file-input').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        persistence.importJSON(file).then(() => {
+          alert('✓ Configuration imported successfully!');
+        }).catch(err => {
+          alert(`✗ Failed to import: ${err.message}`);
+        });
+      }
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key === 'z' && !e.shiftKey) {
+          e.preventDefault();
+          app.undo();
+        } else if (e.key === 'z' && e.shiftKey || e.key === 'y') {
+          e.preventDefault();
+          app.redo();
+        }
+      }
+    });
+
+    // Load from URL or initialize default
+    window.addEventListener('load', () => {
+      if (!persistence.loadFromURL()) {
+        document.getElementById('example-btn').click();
+      }
+    });
+  </script>
+</body>
+</html>
