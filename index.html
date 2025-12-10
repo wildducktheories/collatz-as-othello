@@ -395,7 +395,9 @@
           <a href="?p=585&g=3&h=2">p=585</a>,
           <a href="?p=281&g=3&h=2">p=281</a>,
           <a href="?p=293&g=3&h=2">p=293</a>,
-          <a href="?p=4681&g=3&h=2">p=4681</a>
+          <a href="?p=2119&g=3&h=2">p=2119</a>,
+          <a href="?p=4681&g=3&h=2">p=4681</a>,
+          <a href="?p=8301&g=3&h=2">p=8301</a>
           <br>
           <strong>g=5, h=2:</strong>
           <a href="?p=133&g=5&h=2">p=133</a>,
@@ -428,8 +430,17 @@
       <div id="special-info" style="font-size: 12px; margin-top: 8px; color: #666;"></div>
     </div>
 
-    <div class="canvas-container">
+    <div class="canvas-container" id="board-container">
       <canvas id="board-canvas"></canvas>
+    </div>
+
+    <div class="panel" style="padding: 15px 25px;">
+      <div id="x-cycle-display" style="font-size: 14px; color: #333;">Computing x-cycle...</div>
+      <div style="margin-top: 10px;">
+        <button class="btn-secondary" id="prev-btn">← Prev</button>
+        <button class="btn-secondary" id="next-btn">Next →</button>
+        <button class="btn-secondary" id="cycle-btn">Cycle</button>
+      </div>
     </div>
 
     <div class="polynomial-panel panel">
@@ -1495,9 +1506,10 @@
       let hExponent = 0;
       let i = 0;
 
-      // Validate: should start with 1
-      if (bits.length === 0 || bits[0] !== '1') {
-        throw new Error('Invalid binary pattern');
+      // Count initial 0s (E bits) for even p values
+      while (i < bits.length - 1 && bits[i] === '0') {
+        hExponent++;
+        i++;
       }
 
       // Parse monomials from right to left, excluding stop bit
@@ -1552,6 +1564,205 @@
       return a;
     }
 
+    // Enumerate p-cycle by rotating lower bits
+    function enumeratePCycle(p) {
+      // Find the position of the stop bit (highest bit)
+      const binary = p.toString(2);
+      const bitLength = binary.length;
+      const stopBitPos = bitLength - 1;
+      const stopBitMask = 1 << stopBitPos;
+      const lowerBitsMask = stopBitMask - 1;
+
+      const cycle = [];
+      let current = p;
+
+      do {
+        cycle.push(current);
+
+        // Strip stop bit
+        const lowerBits = current & lowerBitsMask;
+
+        // Rotate right: LSB goes to MSB of lower bits (not stop bit position)
+        const lsb = lowerBits & 1;
+        const rotated = (lowerBits >> 1) | (lsb << (stopBitPos - 1));
+
+        // Add stop bit back
+        current = rotated | stopBitMask;
+
+      } while (current !== p);
+
+      return cycle;
+    }
+
+    // Calculate x-cycle from p-cycle
+    function calculateXCycle(pCycle, g, h) {
+      const xCycle = [];
+
+      for (const p of pCycle) {
+        try {
+          const structure = parseBinaryToStructure(p);
+          const k = computeK(structure.monomials, g, h);
+          const d = Math.pow(h, structure.e) - Math.pow(g, structure.o);
+          const gcdValue = gcd(k, d);
+          const x0 = Math.round(k / gcdValue);
+
+          xCycle.push({ p, x0 });
+        } catch (err) {
+          console.error('Error calculating x for p=' + p, err);
+        }
+      }
+
+      return xCycle;
+    }
+
+    // Display x-cycle below the board
+    function displayXCycle() {
+      const p = parseP(document.getElementById('input-p').value);
+      const g = parseInt(document.getElementById('input-g').value);
+      const h = parseInt(document.getElementById('input-h').value);
+
+      const container = document.getElementById('x-cycle-display');
+      if (!container) return;
+
+      if (isNaN(p) || p <= 0 || isNaN(g) || g < 2 || isNaN(h) || h < 2) {
+        container.innerHTML = '';
+        return;
+      }
+
+      try {
+        const pCycle = enumeratePCycle(p);
+        const xCycle = calculateXCycle(pCycle, g, h);
+
+        let html = '<strong>x-cycle:</strong> [';
+
+        xCycle.forEach((item, idx) => {
+          if (idx > 0) html += ', ';
+
+          if (idx === 0) {
+            // First element, no link
+            html += item.x0;
+          } else {
+            // Other elements, add clickable link that updates without navigation
+            html += `<a href="#" class="x-cycle-link" data-p="${item.p}" data-g="${g}" data-h="${h}" style="cursor:pointer;">${item.x0}</a>`;
+          }
+        });
+
+        html += ']';
+        container.innerHTML = html;
+
+        // Add click handlers to x-cycle links
+        const links = container.querySelectorAll('.x-cycle-link');
+        links.forEach(link => {
+          link.addEventListener('click', (e) => {
+            e.preventDefault();
+            const newP = link.getAttribute('data-p');
+            const newG = link.getAttribute('data-g');
+            const newH = link.getAttribute('data-h');
+
+            // Update input fields
+            document.getElementById('input-p').value = newP;
+            document.getElementById('input-g').value = newG;
+            document.getElementById('input-h').value = newH;
+
+            // Update derived parameters and display
+            updateBinaryDisplay();
+            updateDerivedParameters();
+
+            // Update URL without page reload
+            const url = new URL(window.location.href);
+            url.searchParams.set('p', newP);
+            url.searchParams.set('g', newG);
+            url.searchParams.set('h', newH);
+            window.history.pushState({}, '', url);
+
+            // Reinitialize board
+            document.getElementById('init-btn').click();
+          });
+        });
+      } catch (err) {
+        console.error('Error displaying x-cycle:', err);
+        container.innerHTML = '';
+      }
+    }
+
+    // Cycle animation state
+    let cycleInterval = null;
+
+    // Rotate p to next value (rotate right)
+    function rotatePNext(p) {
+      const binary = p.toString(2);
+      const bitLength = binary.length;
+      const stopBitPos = bitLength - 1;
+      const stopBitMask = 1 << stopBitPos;
+      const lowerBitsMask = stopBitMask - 1;
+
+      const lowerBits = p & lowerBitsMask;
+      const lsb = lowerBits & 1;
+      const rotated = (lowerBits >> 1) | (lsb << (stopBitPos - 1));
+      return rotated | stopBitMask;
+    }
+
+    // Rotate p to previous value (rotate left)
+    function rotatePPrev(p) {
+      const binary = p.toString(2);
+      const bitLength = binary.length;
+      const stopBitPos = bitLength - 1;
+      const stopBitMask = 1 << stopBitPos;
+      const lowerBitsMask = stopBitMask - 1;
+
+      const lowerBits = p & lowerBitsMask;
+      const msb = (lowerBits >> (stopBitPos - 1)) & 1;
+      const rotated = ((lowerBits << 1) & lowerBitsMask) | msb;
+      return rotated | stopBitMask;
+    }
+
+    // Load a new p value and update everything
+    function loadP(newP) {
+      const g = document.getElementById('input-g').value;
+      const h = document.getElementById('input-h').value;
+
+      document.getElementById('input-p').value = newP;
+      updateBinaryDisplay();
+      updateDerivedParameters();
+
+      const url = new URL(window.location.href);
+      url.searchParams.set('p', newP);
+      url.searchParams.set('g', g);
+      url.searchParams.set('h', h);
+      window.history.pushState({}, '', url);
+
+      document.getElementById('init-btn').click();
+    }
+
+    // Go to next p-value
+    function goToNextP() {
+      const p = parseP(document.getElementById('input-p').value);
+      const nextP = rotatePNext(p);
+      loadP(nextP);
+    }
+
+    // Go to previous p-value
+    function goToPrevP() {
+      const p = parseP(document.getElementById('input-p').value);
+      const prevP = rotatePPrev(p);
+      loadP(prevP);
+    }
+
+    // Toggle cycle animation
+    function toggleCycle() {
+      const cycleBtn = document.getElementById('cycle-btn');
+      if (cycleInterval) {
+        // Stop cycling
+        clearInterval(cycleInterval);
+        cycleInterval = null;
+        cycleBtn.textContent = 'Cycle';
+      } else {
+        // Start cycling
+        cycleInterval = setInterval(goToNextP, 1000);
+        cycleBtn.textContent = 'Stop';
+      }
+    }
+
     // Update derived parameters from p, g, h
     function updateDerivedParameters() {
       const p = parseP(document.getElementById('input-p').value);
@@ -1586,6 +1797,9 @@
         document.getElementById('output-e').textContent = e.toString();
         document.getElementById('output-q').textContent = q.toString();
         document.getElementById('output-x0').textContent = x0.toString();
+
+        // Update x-cycle display
+        displayXCycle();
       } catch (err) {
         console.error('Error deriving parameters:', err);
       }
@@ -1624,6 +1838,9 @@
         setTimeout(() => {
           document.getElementById('validation-message').innerHTML = '';
         }, 3000);
+
+        // Display x-cycle after successful initialization
+        displayXCycle();
       } catch (err) {
         document.getElementById('validation-message').innerHTML =
           `<div class="validation-error">✗ ${err.message}</div>`;
@@ -1859,6 +2076,19 @@
         // Initialize board with current values (query params or defaults)
         document.getElementById('init-btn').click();
       }
+
+      // Scroll to board after initialization
+      setTimeout(() => {
+        const boardContainer = document.getElementById('board-container');
+        if (boardContainer) {
+          boardContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
+
+      // Add event listeners for cycle navigation buttons
+      document.getElementById('prev-btn').addEventListener('click', goToPrevP);
+      document.getElementById('next-btn').addEventListener('click', goToNextP);
+      document.getElementById('cycle-btn').addEventListener('click', toggleCycle);
     });
   </script>
 </body>
