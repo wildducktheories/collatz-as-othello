@@ -423,6 +423,9 @@
         <div style="font-size: 13px; line-height: 1.8; color: #666;">
           <strong>g=3, h=2:</strong>
           <a href="?p=9&g=3&h=2">p=9</a>,
+          <a href="?p=17&g=3&h=2">p=17</a>,
+          <a href="?p=33&g=3&h=2">p=33</a>,
+          <a href="?p=65&g=3&h=2">p=65</a>,
           <a href="?p=37&g=3&h=2">p=37</a>,
           <a href="?p=73&g=3&h=2">p=73</a>,
           <a href="?p=585&g=3&h=2">p=585</a>,
@@ -433,9 +436,19 @@
           <a href="?p=8301&g=3&h=2">p=8301</a>
           <br>
           <strong>g=5, h=2:</strong>
+          <a href="?p=9&g=5&h=2">p=9</a>,
+          <a href="?p=17&g=5&h=2">p=17</a>,
+          <a href="?p=33&g=5&h=2">p=33</a>,
+          <a href="?p=65&g=5&h=2">p=65</a>,
           <a href="?p=133&g=5&h=2">p=133</a>,
           <a href="?p=1045&g=5&h=2">p=1045</a>,
           <a href="?p=1093&g=5&h=2">p=1093</a>
+          <br>
+          <strong>g=7, h=2:</strong>
+          <a href="?p=9&g=7&h=2">p=9</a>,
+          <a href="?p=17&g=7&h=2">p=17</a>,
+          <a href="?p=33&g=7&h=2">p=33</a>,
+          <a href="?p=65&g=7&h=2">p=65</a>
           <br>
           <strong>g=181, h=2:</strong>
           <a href="?p=131089&g=181&h=2">p=131089</a>,
@@ -457,12 +470,13 @@
         <button class="btn-secondary" id="undo-btn" disabled>⟲ Undo</button>
         <button class="btn-secondary" id="redo-btn" disabled>⟳ Redo</button>
         <button class="btn-secondary" id="reset-btn" disabled>Reset</button>
+        <button class="btn-secondary" id="animate-btn" disabled>▶ Animate</button>
         <label><input type="checkbox" id="spread-mode"> Spread</label>
       </div>
       <div style="margin-top: 10px; font-size: 12px; color: #666; line-height: 1.6;">
         <strong>Usage:</strong> Select a cell on the board, then use conservation laws to move pebbles.
         <strong>Spread</strong> mode automatically repeats Left/Up operations to reduce multiples to singletons.
-        Use <strong>Undo/Redo</strong> to navigate changes, <strong>Reset</strong> to return to initial state.
+        Use <strong>Undo/Redo</strong> to navigate changes, <strong>Reset</strong> to return to initial state, <strong>Animate</strong> to replay history step-by-step.
       </div>
       <h3>Conservation Laws</h3>
       <div class="conservation-laws">
@@ -1265,8 +1279,19 @@
       }
 
       exportJSON() {
-        const state = this.app.board.toJSON();
-        const json = JSON.stringify(state, null, 2);
+        // Export current state plus full history
+        const exportData = {
+          version: 1,
+          currentState: this.app.board.toJSON(),
+          history: {
+            states: this.app.history.states.map(state => state.toJSON()),
+            currentIndex: this.app.history.currentIndex
+          },
+          initialBoard: this.app.initialBoard ? this.app.initialBoard.toJSON() : null,
+          exportTimestamp: new Date().toISOString()
+        };
+
+        const json = JSON.stringify(exportData, null, 2);
         const blob = new Blob([json], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
 
@@ -1286,15 +1311,41 @@
           reader.onload = (e) => {
             try {
               const json = JSON.parse(e.target.result);
-              const board = BoardState.fromJSON(json);
-              this.app.board = board;
-              this.app.laws = new ConservationLaws(board);
-              this.app.renderer.board = board;
-              this.app.history.clear();
-              this.app.history.push(board);
-              this.app.initialBoard = board.clone();
-              this.app.render();
-              resolve(true);
+
+              // Check if this is a new format (with version and history) or old format (just board state)
+              if (json.version === 1 && json.history) {
+                // New format with history
+                const board = BoardState.fromJSON(json.currentState);
+                this.app.board = board;
+                this.app.laws = new ConservationLaws(board);
+                this.app.renderer.board = board;
+
+                // Restore history
+                this.app.history.clear();
+                this.app.history.states = json.history.states.map(state => BoardState.fromJSON(state));
+                this.app.history.currentIndex = json.history.currentIndex;
+
+                // Restore initial board
+                if (json.initialBoard) {
+                  this.app.initialBoard = BoardState.fromJSON(json.initialBoard);
+                } else {
+                  this.app.initialBoard = board.clone();
+                }
+
+                this.app.render();
+                resolve(true);
+              } else {
+                // Old format (backward compatibility) - just board state
+                const board = BoardState.fromJSON(json);
+                this.app.board = board;
+                this.app.laws = new ConservationLaws(board);
+                this.app.renderer.board = board;
+                this.app.history.clear();
+                this.app.history.push(board);
+                this.app.initialBoard = board.clone();
+                this.app.render();
+                resolve(true);
+              }
             } catch (err) {
               reject(err);
             }
@@ -1316,6 +1367,8 @@
         this.selectedCell = null;
         this.initialBoard = null;
         this.pendingAction = null;
+        this.animationInterval = null;
+        this.animationDelay = 500; // milliseconds between steps
       }
 
       initialize(o, e, g, h, q, x0) {
@@ -1443,6 +1496,7 @@
       }
 
       reset() {
+        this.stopAnimation();
         if (this.initialBoard) {
           this.board = this.initialBoard.clone();
           this.laws = new ConservationLaws(this.board);
@@ -1452,6 +1506,43 @@
           this.selectedCell = null;
           this.renderer.selectedCell = null;
           this.render();
+        }
+      }
+
+      startAnimation() {
+        if (this.animationInterval) {
+          this.stopAnimation();
+          return;
+        }
+
+        // Go to start of history
+        while (this.history.canUndo()) {
+          this.history.undo();
+        }
+        const firstBoard = this.history.states[this.history.currentIndex];
+        this.board = firstBoard.clone();
+        this.laws = new ConservationLaws(this.board);
+        this.renderer.board = this.board;
+        this.render();
+
+        // Update button text
+        document.getElementById('animate-btn').textContent = '⏸ Stop';
+
+        // Start animation
+        this.animationInterval = setInterval(() => {
+          if (this.history.canRedo()) {
+            this.redo();
+          } else {
+            this.stopAnimation();
+          }
+        }, this.animationDelay);
+      }
+
+      stopAnimation() {
+        if (this.animationInterval) {
+          clearInterval(this.animationInterval);
+          this.animationInterval = null;
+          document.getElementById('animate-btn').textContent = '▶ Animate';
         }
       }
 
@@ -1666,6 +1757,7 @@
       updateControlPanel() {
         document.getElementById('undo-btn').disabled = !this.history.canUndo();
         document.getElementById('redo-btn').disabled = !this.history.canRedo();
+        document.getElementById('animate-btn').disabled = this.history.states.length <= 1;
 
         // Update special system info
         const specialType = this.laws.getSpecialSystemType();
@@ -2263,6 +2355,7 @@
     document.getElementById('undo-btn').addEventListener('click', () => app.undo());
     document.getElementById('redo-btn').addEventListener('click', () => app.redo());
     document.getElementById('reset-btn').addEventListener('click', () => app.reset());
+    document.getElementById('animate-btn').addEventListener('click', () => app.startAnimation());
 
     // Conservation law buttons
     document.getElementById('g-right-btn').addEventListener('click', () => {
