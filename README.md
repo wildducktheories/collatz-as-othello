@@ -27,7 +27,7 @@ Where:
 - **Conservation Laws**: Six transformation operations that preserve the polynomial value:
   - **Left/Right**: Multiply by g (combine/split pebbles horizontally)
   - **Up/Down**: Multiply by h (combine/split pebbles vertically)
-  - **Basis Law**: Special transformation for 3x+1 or 5x+1 systems
+  - **Basis Law**: Universal transformation using g = (g+1) in base h, minus 1 (works for any g, h)
   - **Reverse Basis Law**: Inverse of the basis law transformation
 
 ### Visual Representation
@@ -125,7 +125,15 @@ All operations preserve the polynomial identity by applying valid algebraic tran
 
 - **g-multiplication**: Uses g^(o-1-j) = g·g^(o-2-j)
 - **h-multiplication**: Uses h^(i+1) = h·h^i
-- **Basis laws**: Use g = h² ± h - 1 identities for special systems
+- **Basis laws**: Universal transformation using the identity **g = (g+1) in base h, minus 1**
+  - Works for ANY g, h values by expressing g+1 in base-h representation
+  - **Forward law**: Replaces a pebble at (j,i) with the base-h digits of (g+1) at column j+1, minus 1 at i=0
+  - **Reverse law**: Uses h^k = (g+1) - (sum of lower power terms) to reverse the transformation
+  - Examples:
+    - g=3, h=2: g+1=4=100₂ → g = h² - 1 (3x+1 system)
+    - g=5, h=2: g+1=6=110₂ → g = h² + h - 1 (5x+1 system)
+    - g=7, h=2: g+1=8=1000₂ → g = h³ - 1 (7x+1 system)
+    - g=11, h=2: g+1=12=1100₂ → g = h³ + h² - 1 (11x+1 system)
 - **Assertion**: Every operation validates polynomial sum is unchanged
 
 ### The Othello Analogy

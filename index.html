@@ -461,24 +461,28 @@
       <div id="validation-message"></div>
     </div>
 
-    <div class="control-panel panel">
-      <h2>Controls</h2>
+    <div class="canvas-container" id="board-container">
+      <canvas id="board-canvas"></canvas>
+    </div>
+
+    <div class="panel">
+      <h2>Cycle Controls</h2>
+      <div id="x-cycle-display" style="font-size: 14px; color: #333; margin-bottom: 10px;">Computing x-cycle...</div>
+      <div class="control-grid">
+        <button class="btn-secondary" id="prev-btn">← Prev</button>
+        <button class="btn-secondary" id="next-btn">Next →</button>
+        <button class="btn-secondary" id="cycle-btn">Cycle</button>
+      </div>
+      <div style="margin-top: 10px; font-size: 12px; color: #666; line-height: 1.6;">
+        <strong>Usage:</strong> Navigate between x-cycle elements using Prev/Next. The Cycle button rotates through p-cycle members.
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Conservation Laws</h2>
       <div class="selected-info" id="selected-info">
         No cell selected. Click a cell on the board to select it.
       </div>
-      <div class="control-grid">
-        <button class="btn-secondary" id="undo-btn" disabled>⟲ Undo</button>
-        <button class="btn-secondary" id="redo-btn" disabled>⟳ Redo</button>
-        <button class="btn-secondary" id="reset-btn" disabled>Reset</button>
-        <button class="btn-secondary" id="animate-btn" disabled>▶ Animate</button>
-        <label><input type="checkbox" id="spread-mode"> Spread</label>
-      </div>
-      <div style="margin-top: 10px; font-size: 12px; color: #666; line-height: 1.6;">
-        <strong>Usage:</strong> Select a cell on the board, then use conservation laws to move pebbles.
-        <strong>Spread</strong> mode automatically repeats Left/Up operations to reduce multiples to singletons.
-        Use <strong>Undo/Redo</strong> to navigate changes, <strong>Reset</strong> to return to initial state, <strong>Animate</strong> to replay history step-by-step.
-      </div>
-      <h3>Conservation Laws</h3>
       <div class="conservation-laws">
         <div class="law-row">
           <button class="btn-primary" id="g-left-btn" disabled>← ×g Left (l)</button>
@@ -497,18 +501,23 @@
         <strong>Keyboard shortcuts:</strong> Keys apply operations with 1 pebble. Hold <strong>Shift</strong> to use maximum available pebbles.
       </div>
       <div id="special-info" style="font-size: 12px; margin-top: 8px; color: #666;"></div>
+      <div style="margin-top: 10px; font-size: 12px; color: #666; line-height: 1.6;">
+        <strong>About:</strong> Conservation laws preserve the polynomial identity while transforming board state.
+        <strong>Spread</strong> mode automatically repeats Left/Up operations to reduce multiples to singletons.
+      </div>
+      <label style="margin-top: 10px; display: block;"><input type="checkbox" id="spread-mode"> Spread Mode</label>
     </div>
 
-    <div class="canvas-container" id="board-container">
-      <canvas id="board-canvas"></canvas>
-    </div>
-
-    <div class="panel" style="padding: 15px 25px;">
-      <div id="x-cycle-display" style="font-size: 14px; color: #333;">Computing x-cycle...</div>
-      <div style="margin-top: 10px;">
-        <button class="btn-secondary" id="prev-btn">← Prev</button>
-        <button class="btn-secondary" id="next-btn">Next →</button>
-        <button class="btn-secondary" id="cycle-btn">Cycle</button>
+    <div class="panel">
+      <h2>History Controls</h2>
+      <div class="control-grid">
+        <button class="btn-secondary" id="undo-btn" disabled>⟲ Undo</button>
+        <button class="btn-secondary" id="redo-btn" disabled>⟳ Redo</button>
+        <button class="btn-secondary" id="reset-btn" disabled>Reset</button>
+        <button class="btn-secondary" id="animate-btn" disabled>▶ Animate</button>
+      </div>
+      <div style="margin-top: 10px; font-size: 12px; color: #666; line-height: 1.6;">
+        <strong>Usage:</strong> Use <strong>Undo/Redo</strong> to navigate changes, <strong>Reset</strong> to return to initial state, <strong>Animate</strong> to replay history step-by-step.
       </div>
     </div>
 
@@ -529,6 +538,12 @@
       <div style="margin-top: 15px;">
         <div id="d-heading" style="margin-bottom: 15px; font-size: 16px; color: #555;"></div>
         <div class="polynomial-display" id="d-polynomial-display" style="font-size: 14px;">
+        </div>
+      </div>
+
+      <div style="margin-top: 15px;" id="basis-law-section">
+        <div id="basis-law-heading" style="margin-bottom: 15px; font-size: 16px; color: #555;"></div>
+        <div class="polynomial-display" id="basis-law-display" style="font-size: 14px;">
         </div>
       </div>
     </div>
@@ -1042,7 +1057,38 @@
         return true;
       }
 
-      // Special Collatz relations
+      // Generalized Basis Law: g = (g+1) in base h minus 1
+      // Convert number to base h, returns array of digits [d_k, d_{k-1}, ..., d_1, d_0]
+      toBaseH(num, base) {
+        if (num === 0) return [0];
+        const digits = [];
+        while (num > 0) {
+          digits.unshift(num % base);
+          num = Math.floor(num / base);
+        }
+        return digits;
+      }
+
+      getBasisLawDescription() {
+        const gPlus1 = this.board.g + 1;
+        const digits = this.toBaseH(gPlus1, this.board.h);
+
+        // Build the formula string
+        let formula = '';
+        for (let power = digits.length - 1; power >= 0; power--) {
+          const digit = digits[power];
+          if (digit > 0) {
+            if (formula && power > 0) formula += ' + ';
+            if (digit > 1) formula += digit + '·';
+            if (power > 1) formula += `h^${power}`;
+            else if (power === 1) formula += 'h';
+            else if (power === 0 && digit > 1) formula += '1';
+          }
+        }
+        return `g = ${formula} - 1`;
+      }
+
+      // Legacy system type checks for backward compatibility
       is3x1System() {
         return this.board.g === this.board.h * this.board.h - 1;
       }
@@ -1052,23 +1098,30 @@
       }
 
       getSpecialSystemType() {
+        // Return the generalized description
+        const gPlus1 = this.board.g + 1;
+        const digits = this.toBaseH(gPlus1, this.board.h);
+        const maxPower = digits.length - 1;
+
+        // Check for classic systems
         if (this.is3x1System()) return '3x+1';
         if (this.is5x1System()) return '5x+1';
-        return null;
+
+        // Return generalized description
+        return `${this.board.g}x+1 (h^${maxPower} basis)`;
       }
 
       canApplySpecial(j, i) {
-        if (!this.is3x1System() && !this.is5x1System()) return false;
         if (this.board.get(j, i) === 0) return false;
         if (j >= this.board.maxCol) return false;
 
-        if (this.is3x1System()) {
-          return i + 2 <= this.board.maxRow;
-        } else if (this.is5x1System()) {
-          return i + 2 <= this.board.maxRow;
-        }
+        // Find maximum power needed (highest power in base-h representation of g+1)
+        const gPlus1 = this.board.g + 1;
+        const digits = this.toBaseH(gPlus1, this.board.h);
+        const maxPower = digits.length - 1;
 
-        return false;
+        // Need room for i + maxPower
+        return i + maxPower <= this.board.maxRow;
       }
 
       applySpecial3x1(j, i, numPebbles) {
@@ -1114,13 +1167,45 @@
         return true;
       }
 
-      applySpecial(j, i, numPebbles) {
-        if (this.is3x1System()) {
-          return this.applySpecial3x1(j, i, numPebbles);
-        } else if (this.is5x1System()) {
-          return this.applySpecial5x1(j, i, numPebbles);
+      // Generalized Basis Law: g = (g+1)_h - 1
+      applySpecialGeneralized(j, i, numPebbles) {
+        if (!this.canApplySpecial(j, i)) return false;
+
+        const count = this.board.get(j, i);
+        const sign = Math.sign(count);
+        const absAvailable = Math.abs(count);
+
+        if (numPebbles > absAvailable) return false;
+
+        // Convert g+1 to base h
+        const gPlus1 = this.board.g + 1;
+        const digits = this.toBaseH(gPlus1, this.board.h);
+
+        // Remove source pebble
+        this.board.add(j, i, -sign * numPebbles);
+
+        // Add pebbles according to base-h representation of (g+1)
+        // For each power, add digit * pebbles at (j+1, i+power)
+        for (let power = 0; power < digits.length; power++) {
+          const digit = digits[digits.length - 1 - power]; // digits stored MSB first
+          if (power === 0) {
+            // At i+0: d_0 - 1 (the -1 from g = (g+1) - 1)
+            if (digit > 0) {
+              this.board.add(j + 1, i, sign * digit * numPebbles);
+            }
+            this.board.add(j + 1, i, -sign * numPebbles); // subtract 1
+          } else if (digit > 0) {
+            // At i+power: d_power pebbles
+            this.board.add(j + 1, i + power, sign * digit * numPebbles);
+          }
         }
-        return false;
+
+        return true;
+      }
+
+      applySpecial(j, i, numPebbles) {
+        // Use generalized version for all cases
+        return this.applySpecialGeneralized(j, i, numPebbles);
       }
 
       // Reverse of applySpecial3x1: h² = g + 1
@@ -1166,22 +1251,64 @@
         return true;
       }
 
-      applyReverseSpecial(j, i, numPebbles) {
-        if (this.is3x1System()) {
-          return this.applyReverseSpecial3x1(j, i, numPebbles);
-        } else if (this.is5x1System()) {
-          return this.applyReverseSpecial5x1(j, i, numPebbles);
+      // Generalized Reverse Basis Law
+      // If g+1 = sum(d_i * h^i), then h^k = g+1 - sum(d_i * h^i for i<k)
+      // where k is the highest power
+      applyReverseSpecialGeneralized(j, i, numPebbles) {
+        if (!this.canApplyReverseSpecial(j, i)) return false;
+
+        const count = this.board.get(j, i);
+        const sign = Math.sign(count);
+        const absAvailable = Math.abs(count);
+
+        if (sign === 0 || numPebbles > absAvailable) return false;
+
+        // Convert g+1 to base h
+        const gPlus1 = this.board.g + 1;
+        const digits = this.toBaseH(gPlus1, this.board.h);
+        const maxPower = digits.length - 1;
+
+        // h^i = h^(i-maxPower) * h^maxPower
+        // h^maxPower = (g+1) - (lower power terms)
+        // So h^i = h^(i-maxPower) * [(g+1) - (lower terms)]
+        //        = h^(i-maxPower) * g + h^(i-maxPower) - (h^(i-maxPower) * lower terms)
+
+        this.board.add(j, i, -sign * numPebbles); // remove from source
+
+        // Add g * h^(i-maxPower) term at (j-1, i-maxPower)
+        this.board.add(j - 1, i - maxPower, sign * numPebbles);
+
+        // Add the +1 term: h^(i-maxPower) at (j, i-maxPower)
+        this.board.add(j, i - maxPower, sign * numPebbles);
+
+        // Subtract lower power terms
+        for (let power = 0; power < maxPower; power++) {
+          const digit = digits[digits.length - 1 - power];
+          if (digit > 0) {
+            this.board.add(j, i - maxPower + power, -sign * digit * numPebbles);
+          }
         }
-        return false;
+
+        return true;
+      }
+
+      applyReverseSpecial(j, i, numPebbles) {
+        // Use generalized version for all cases
+        return this.applyReverseSpecialGeneralized(j, i, numPebbles);
       }
 
       canApplyReverseSpecial(j, i) {
-        if (j <= this.board.minCol || i < 2) return false;
+        if (j <= this.board.minCol) return false;
 
         const count = this.board.get(j, i);
         if (Math.sign(count) === 0) return false;
 
-        return this.is3x1System() || this.is5x1System();
+        // Need i >= maxPower
+        const gPlus1 = this.board.g + 1;
+        const digits = this.toBaseH(gPlus1, this.board.h);
+        const maxPower = digits.length - 1;
+
+        return i >= maxPower;
       }
     }
 
@@ -1589,6 +1716,9 @@
         // Render d(g,h) polynomial
         this.renderDPolynomial();
 
+        // Render basis law
+        this.renderBasisLaw();
+
         const statusDiv = document.getElementById('polynomial-status');
         if (this.board.isZeroState()) {
           statusDiv.innerHTML = '<span class="status-badge status-zero">✓ Zero state reached!</span>';
@@ -1692,6 +1822,63 @@
         }
       }
 
+      renderBasisLaw() {
+        if (!this.board) return;
+
+        const g = this.board.g;
+        const h = this.board.h;
+        const gPlus1 = g + 1;
+        const digits = this.laws.toBaseH(gPlus1, h);
+
+        // Build the formula: g = sum(digit_i * h^i) - 1
+        const headingElement = document.getElementById('basis-law-heading');
+        headingElement.textContent = 'Basis Law';
+
+        let latexStr = 'g = ';
+        let terms = [];
+
+        // Add all non-zero terms from the base-h expansion
+        for (let power = digits.length - 1; power >= 0; power--) {
+          const digit = digits[digits.length - 1 - power];
+          if (digit > 0) {
+            let term = '';
+            if (digit > 1) term += digit.toString();
+            if (power > 1) {
+              term += 'h^{' + power + '}';
+            } else if (power === 1) {
+              term += 'h';
+            } else if (power === 0 && digit > 1) {
+              // Just the digit
+            } else if (power === 0 && digit === 1) {
+              term = '1';
+            }
+            if (term) terms.push(term);
+          }
+        }
+
+        latexStr += terms.join(' + ');
+        latexStr += ' - 1';
+
+        const displayElement = document.getElementById('basis-law-display');
+        const sectionElement = document.getElementById('basis-law-section');
+
+        // Only show if there's a valid basis law
+        if (terms.length > 0) {
+          sectionElement.style.display = 'block';
+          try {
+            katex.render(latexStr, displayElement, {
+              throwOnError: false,
+              displayMode: true
+            });
+          } catch (e) {
+            console.error('Error rendering basis law:', e);
+            displayElement.textContent = latexStr.replace(/\^{(\d+)}/g, '^$1');
+          }
+        } else {
+          sectionElement.style.display = 'none';
+        }
+      }
+
       formatPolynomial(terms) {
         if (terms.length === 0) return '0';
 
@@ -1761,11 +1948,12 @@
 
         // Update special system info
         const specialType = this.laws.getSpecialSystemType();
+        const basisFormula = this.laws.getBasisLawDescription();
         const specialInfo = document.getElementById('special-info');
         if (specialType) {
-          specialInfo.innerHTML = `<strong>Special System Detected:</strong> ${specialType} (g=${this.board.g}, h=${this.board.h})`;
+          specialInfo.innerHTML = `<strong>Special System Detected:</strong> ${specialType} (g=${this.board.g}, h=${this.board.h})<br><strong>Basis Law:</strong> ${basisFormula}`;
         } else {
-          specialInfo.innerHTML = `<em>No special Collatz relation detected (g≠h²-1 and g≠h²+h-1)</em>`;
+          specialInfo.innerHTML = `<em>No special Collatz relation detected</em>`;
         }
 
         if (this.selectedCell) {
@@ -2491,36 +2679,25 @@
       const { j, i } = app.selectedCell;
       const count = Math.abs(app.board.get(j, i));
       const specialType = app.laws.getSpecialSystemType();
+      const basisFormula = app.laws.getBasisLawDescription();
 
-      if (specialType === '3x+1') {
-        app.showInputModal(
-          'Basis Law (3x+1)',
-          `Apply 3x+1 law: moves pebble from (j=${j},i=${i}) to (j=${j+1},i=${i+2}) and adds opposite at (j=${j+1},i=${i}). How many pebbles?`,
-          count,
-          (num) => {
-            const success = app.applyAction(laws => laws.applySpecial(j, i, num));
-            if (success) {
-              app.selectedCell = { j: j + 1, i: i + 2 };
-              app.renderer.selectedCell = app.selectedCell;
-              app.render();
-            }
+      const gPlus1 = app.board.g + 1;
+      const digits = app.laws.toBaseH(gPlus1, app.board.h);
+      const maxPower = digits.length - 1;
+
+      app.showInputModal(
+        `Basis Law (${specialType})`,
+        `Apply ${basisFormula}: Replaces pebble at (j=${j},i=${i}) with base-${app.board.h} expansion of (g+1) at column j+1, minus 1. How many pebbles?`,
+        count,
+        (num) => {
+          const success = app.applyAction(laws => laws.applySpecial(j, i, num));
+          if (success) {
+            app.selectedCell = { j: j + 1, i: i + maxPower };
+            app.renderer.selectedCell = app.selectedCell;
+            app.render();
           }
-        );
-      } else if (specialType === '5x+1') {
-        app.showInputModal(
-          'Basis Law (5x+1)',
-          `Apply 5x+1 law: moves pebble from (j=${j},i=${i}) to (j=${j+1},i=${i+2}) and (j=${j+1},i=${i+1}), adds opposite at (j=${j+1},i=${i}). How many pebbles?`,
-          count,
-          (num) => {
-            const success = app.applyAction(laws => laws.applySpecial(j, i, num));
-            if (success) {
-              app.selectedCell = { j: j + 1, i: i + 2 };
-              app.renderer.selectedCell = app.selectedCell;
-              app.render();
-            }
-          }
-        );
-      }
+        }
+      );
     });
 
     document.getElementById('reverse-special-btn').addEventListener('click', () => {
@@ -2528,36 +2705,25 @@
       const { j, i } = app.selectedCell;
       const count = Math.abs(app.board.get(j, i));
       const specialType = app.laws.getSpecialSystemType();
+      const basisFormula = app.laws.getBasisLawDescription();
 
-      if (specialType === '3x+1') {
-        app.showInputModal(
-          'Reverse Basis Law (3x+1)',
-          `Apply h² = g + 1: splits 1 pebble from (j=${j},i=${i}) into g at (j=${j-1},i=${i}), -h at (j=${j},i=${i-1}), and 1 at (j=${j},i=${i-2}). How many pebbles?`,
-          count,
-          (num) => {
-            const success = app.applyAction(laws => laws.applyReverseSpecial(j, i, num));
-            if (success) {
-              app.selectedCell = { j: j - 1, i: i };
-              app.renderer.selectedCell = app.selectedCell;
-              app.render();
-            }
+      const gPlus1 = app.board.g + 1;
+      const digits = app.laws.toBaseH(gPlus1, app.board.h);
+      const maxPower = digits.length - 1;
+
+      app.showInputModal(
+        `Reverse Basis Law (${specialType})`,
+        `Apply inverse of ${basisFormula}: Uses h^${maxPower} = (g+1) - (lower powers). Splits pebble from (j=${j},i=${i}) into column j-1 at i-${maxPower}. How many pebbles?`,
+        count,
+        (num) => {
+          const success = app.applyAction(laws => laws.applyReverseSpecial(j, i, num));
+          if (success) {
+            app.selectedCell = { j: j - 1, i: i - maxPower };
+            app.renderer.selectedCell = app.selectedCell;
+            app.render();
           }
-        );
-      } else if (specialType === '5x+1') {
-        app.showInputModal(
-          'Reverse Basis Law (5x+1)',
-          `Apply h² = g - h + 1: splits 1 pebble from (j=${j},i=${i}) into g at (j=${j-1},i=${i}), -h at (j=${j},i=${i-1}), and 1 at (j=${j},i=${i-2}). How many pebbles?`,
-          count,
-          (num) => {
-            const success = app.applyAction(laws => laws.applyReverseSpecial(j, i, num));
-            if (success) {
-              app.selectedCell = { j: j - 1, i: i };
-              app.renderer.selectedCell = app.selectedCell;
-              app.render();
-            }
-          }
-        );
-      }
+        }
+      );
     });
 
     // Persistence buttons
@@ -2661,10 +2827,13 @@
 
         case 'f': // Forward (Basis Law)
           e.preventDefault();
-          if (count > 0 && (app.laws.is3x1System() || app.laws.is5x1System())) {
+          if (count > 0 && app.laws.canApplySpecial(j, i)) {
+            const gPlus1 = app.board.g + 1;
+            const digits = app.laws.toBaseH(gPlus1, app.board.h);
+            const maxPower = digits.length - 1;
             const success = app.applyAction(laws => laws.applySpecial(j, i, numPebbles));
             if (success) {
-              app.selectedCell = { j: j + 1, i: i + 2 };
+              app.selectedCell = { j: j + 1, i: i + maxPower };
               app.renderer.selectedCell = app.selectedCell;
               app.render();
             }
@@ -2673,10 +2842,13 @@
 
         case 'b': // Backward (Reverse Basis Law)
           e.preventDefault();
-          if (count > 0 && (app.laws.is3x1System() || app.laws.is5x1System())) {
+          if (count > 0 && app.laws.canApplyReverseSpecial(j, i)) {
+            const gPlus1 = app.board.g + 1;
+            const digits = app.laws.toBaseH(gPlus1, app.board.h);
+            const maxPower = digits.length - 1;
             const success = app.applyAction(laws => laws.applyReverseSpecial(j, i, numPebbles));
             if (success) {
-              app.selectedCell = { j: j - 1, i: i - 2 };
+              app.selectedCell = { j: j - 1, i: i - maxPower };
               app.renderer.selectedCell = app.selectedCell;
               app.render();
             }
