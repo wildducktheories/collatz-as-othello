@@ -208,6 +208,19 @@
       margin-top: 10px;
     }
 
+    .conservation-laws {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .law-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
     .selected-info {
       padding: 12px;
       background: #fff9db;
@@ -442,15 +455,30 @@
         <button class="btn-secondary" id="undo-btn" disabled>⟲ Undo</button>
         <button class="btn-secondary" id="redo-btn" disabled>⟳ Redo</button>
         <button class="btn-secondary" id="reset-btn" disabled>Reset</button>
-        <label><input type="checkbox" id="auto-cancel" checked> Auto-cancel pairs</label>
+        <label><input type="checkbox" id="spread-mode"> Spread</label>
+      </div>
+      <div style="margin-top: 10px; font-size: 12px; color: #666; line-height: 1.6;">
+        <strong>Usage:</strong> Select a cell on the board, then use conservation laws to move pebbles.
+        <strong>Spread</strong> mode automatically repeats Left/Up operations to reduce multiples to singletons.
+        Use <strong>Undo/Redo</strong> to navigate changes, <strong>Reset</strong> to return to initial state.
       </div>
       <h3>Conservation Laws</h3>
-      <div class="control-grid">
-        <button class="btn-primary" id="g-left-btn" disabled>← ×g Left</button>
-        <button class="btn-primary" id="g-right-btn" disabled>×g Right →</button>
-        <button class="btn-primary" id="h-up-btn" disabled>↑ ×h Up</button>
-        <button class="btn-primary" id="h-down-btn" disabled>×h Down ↓</button>
-        <button class="btn-primary" id="special-btn" disabled>Basis Law</button>
+      <div class="conservation-laws">
+        <div class="law-row">
+          <button class="btn-primary" id="g-left-btn" disabled>← ×g Left (l)</button>
+          <button class="btn-primary" id="g-right-btn" disabled>×g Right → (r)</button>
+        </div>
+        <div class="law-row">
+          <button class="btn-primary" id="h-up-btn" disabled>↑ ×h Up (u)</button>
+          <button class="btn-primary" id="h-down-btn" disabled>×h Down ↓ (d)</button>
+        </div>
+        <div class="law-row">
+          <button class="btn-primary" id="special-btn" disabled>Basis Law (f)</button>
+          <button class="btn-primary" id="reverse-special-btn" disabled>Reverse Basis Law (b)</button>
+        </div>
+      </div>
+      <div style="font-size: 12px; margin-top: 8px; color: #666; line-height: 1.6;">
+        <strong>Keyboard shortcuts:</strong> Keys apply operations with 1 pebble. Hold <strong>Shift</strong> to use maximum available pebbles.
       </div>
       <div id="special-info" style="font-size: 12px; margin-top: 8px; color: #666;"></div>
     </div>
@@ -563,6 +591,19 @@
           if (count !== 0) return false;
         }
         return true;
+      }
+
+      // Calculate the polynomial sum: Σ c_{j,i} * g^{o-1-j} * h^i
+      calculatePolynomialSum() {
+        let sum = 0;
+        for (const [key, count] of this.grid.entries()) {
+          const [j, i] = key.split(',').map(Number);
+          const gPower = this.o - 1 - j;
+          const hPower = i;
+          const term = count * Math.pow(this.g, gPower) * Math.pow(this.h, hPower);
+          sum += term;
+        }
+        return sum;
       }
 
       getPolynomial() {
@@ -1065,6 +1106,67 @@
         }
         return false;
       }
+
+      // Reverse of applySpecial3x1: h² = g + 1
+      // Using h^i = h^(i-2) · (g + 1) = g·h^(i-2) + h^(i-2)
+      applyReverseSpecial3x1(j, i, numPebbles) {
+        if (!this.is3x1System()) return false;
+        if (j <= this.board.minCol || i < 2) return false;
+
+        const count = this.board.get(j, i);
+        const sign = Math.sign(count);
+        const absAvailable = Math.abs(count);
+
+        if (sign === 0 || numPebbles > absAvailable) return false;
+
+        // For 3x+1 (g = h² - 1), reverse means: h² = g + 1
+        // g^(o-1-j)·h^i = g^(o-j)·h^(i-2) + g^(o-1-j)·h^(i-2)
+        this.board.add(j, i, -sign * numPebbles);          // remove from source
+        this.board.add(j - 1, i - 2, sign * numPebbles);   // g·h^(i-2) term
+        this.board.add(j, i - 2, sign * numPebbles);       // h^(i-2) constant term
+
+        return true;
+      }
+
+      // Reverse of applySpecial5x1: h² = g - h + 1
+      // Using h^i = h^(i-2) · (g - h + 1) = g·h^(i-2) - h^(i-1) + h^(i-2)
+      applyReverseSpecial5x1(j, i, numPebbles) {
+        if (!this.is5x1System()) return false;
+        if (j <= this.board.minCol || i < 2) return false;
+
+        const count = this.board.get(j, i);
+        const sign = Math.sign(count);
+        const absAvailable = Math.abs(count);
+
+        if (sign === 0 || numPebbles > absAvailable) return false;
+
+        // For 5x+1 (g = h² + h - 1), reverse means: h² = g - h + 1
+        // g^(o-1-j)·h^i = g^(o-j)·h^(i-2) - g^(o-1-j)·h^(i-1) + g^(o-1-j)·h^(i-2)
+        this.board.add(j, i, -sign * numPebbles);          // remove from source
+        this.board.add(j - 1, i - 2, sign * numPebbles);   // g·h^(i-2) term
+        this.board.add(j, i - 1, -sign * numPebbles);      // -h^(i-1) term
+        this.board.add(j, i - 2, sign * numPebbles);       // h^(i-2) constant term
+
+        return true;
+      }
+
+      applyReverseSpecial(j, i, numPebbles) {
+        if (this.is3x1System()) {
+          return this.applyReverseSpecial3x1(j, i, numPebbles);
+        } else if (this.is5x1System()) {
+          return this.applyReverseSpecial5x1(j, i, numPebbles);
+        }
+        return false;
+      }
+
+      canApplyReverseSpecial(j, i) {
+        if (j <= this.board.minCol || i < 2) return false;
+
+        const count = this.board.get(j, i);
+        if (Math.sign(count) === 0) return false;
+
+        return this.is3x1System() || this.is5x1System();
+      }
     }
 
     // ========== Persistence Class ==========
@@ -1279,10 +1381,27 @@
       }
 
       applyAction(actionFn, successMessage) {
+        // Calculate polynomial sum before action
+        const sumBefore = this.board.calculatePolynomialSum();
+
         const newBoard = this.board.clone();
         const newLaws = new ConservationLaws(newBoard);
 
         if (actionFn(newLaws)) {
+          // Calculate polynomial sum after action
+          const sumAfter = newBoard.calculatePolynomialSum();
+
+          // Assert that the polynomial sum is preserved
+          const tolerance = 1e-9; // Account for floating point errors
+          if (Math.abs(sumBefore - sumAfter) > tolerance) {
+            console.error('ASSERTION FAILED: Polynomial sum not preserved!');
+            console.error(`Before: ${sumBefore}`);
+            console.error(`After: ${sumAfter}`);
+            console.error(`Difference: ${sumAfter - sumBefore}`);
+            alert(`⚠️ Conservation law violation detected!\n\nPolynomial sum before: ${sumBefore}\nPolynomial sum after: ${sumAfter}\n\nThis action has been blocked.`);
+            return false;
+          }
+
           this.board = newBoard;
           this.laws = newLaws;
           this.renderer.board = newBoard;
@@ -1570,6 +1689,7 @@
           document.getElementById('h-down-btn').disabled = !this.laws.canApplyHMultiplyDown(j, i);
           document.getElementById('h-up-btn').disabled = !this.laws.canApplyHMultiplyUp(j, i);
           document.getElementById('special-btn').disabled = !this.laws.canApplySpecial(j, i);
+          document.getElementById('reverse-special-btn').disabled = !this.laws.canApplyReverseSpecial(j, i);
         } else {
           document.getElementById('selected-info').textContent = 'No cell selected. Click a cell on the board to select it.';
           document.getElementById('g-right-btn').disabled = true;
@@ -1577,6 +1697,7 @@
           document.getElementById('h-down-btn').disabled = true;
           document.getElementById('h-up-btn').disabled = true;
           document.getElementById('special-btn').disabled = true;
+          document.getElementById('reverse-special-btn').disabled = true;
         }
       }
 
@@ -2168,20 +2289,42 @@
       const count = Math.abs(app.board.get(j, i));
       const maxSets = Math.floor(count / app.board.g);
 
-      app.showInputModal(
-        '← ×g Left',
-        `Combine how many sets of ${app.board.g} pebbles into 1? (max: ${maxSets})`,
-        maxSets,
-        (num) => {
-          const success = app.applyAction(laws => laws.applyGMultiplyLeft(j - 1, i, num));
-          if (success) {
-            app.selectedCell = { j: j - 1, i: i };
-            app.renderer.selectedCell = app.selectedCell;
-            app.render();
-          }
-        },
-        maxSets
-      );
+      const spreadMode = document.getElementById('spread-mode').checked;
+
+      if (spreadMode && maxSets > 0) {
+        // In spread mode, automatically use max without prompting
+        const success = app.applyAction(laws => laws.applyGMultiplyLeft(j - 1, i, maxSets));
+        if (success) {
+          app.selectedCell = { j: j - 1, i: i };
+          app.renderer.selectedCell = app.selectedCell;
+          app.render();
+
+          // Repeat if possible
+          setTimeout(() => {
+            const newCount = Math.abs(app.board.get(j - 1, i));
+            const newMaxSets = Math.floor(newCount / app.board.g);
+            if (newMaxSets > 0) {
+              document.getElementById('g-left-btn').click();
+            }
+          }, 100);
+        }
+      } else {
+        // Normal mode - show prompt
+        app.showInputModal(
+          '← ×g Left',
+          `Combine how many sets of ${app.board.g} pebbles into 1? (max: ${maxSets})`,
+          maxSets,
+          (num) => {
+            const success = app.applyAction(laws => laws.applyGMultiplyLeft(j - 1, i, num));
+            if (success) {
+              app.selectedCell = { j: j - 1, i: i };
+              app.renderer.selectedCell = app.selectedCell;
+              app.render();
+            }
+          },
+          maxSets
+        );
+      }
     });
 
     document.getElementById('h-down-btn').addEventListener('click', () => {
@@ -2210,20 +2353,42 @@
       const count = Math.abs(app.board.get(j, i));
       const maxSets = Math.floor(count / app.board.h);
 
-      app.showInputModal(
-        '↑ ×h Up',
-        `Combine how many sets of ${app.board.h} pebbles into square above? (max: ${maxSets})`,
-        maxSets,
-        (num) => {
-          const success = app.applyAction(laws => laws.applyHMultiplyUp(j, i, num));
-          if (success) {
-            app.selectedCell = { j: j, i: i + 1 };
-            app.renderer.selectedCell = app.selectedCell;
-            app.render();
-          }
-        },
-        maxSets
-      );
+      const spreadMode = document.getElementById('spread-mode').checked;
+
+      if (spreadMode && maxSets > 0) {
+        // In spread mode, automatically use max without prompting
+        const success = app.applyAction(laws => laws.applyHMultiplyUp(j, i, maxSets));
+        if (success) {
+          app.selectedCell = { j: j, i: i + 1 };
+          app.renderer.selectedCell = app.selectedCell;
+          app.render();
+
+          // Repeat if possible
+          setTimeout(() => {
+            const newCount = Math.abs(app.board.get(j, i + 1));
+            const newMaxSets = Math.floor(newCount / app.board.h);
+            if (newMaxSets > 0) {
+              document.getElementById('h-up-btn').click();
+            }
+          }, 100);
+        }
+      } else {
+        // Normal mode - show prompt
+        app.showInputModal(
+          '↑ ×h Up',
+          `Combine how many sets of ${app.board.h} pebbles into square above? (max: ${maxSets})`,
+          maxSets,
+          (num) => {
+            const success = app.applyAction(laws => laws.applyHMultiplyUp(j, i, num));
+            if (success) {
+              app.selectedCell = { j: j, i: i + 1 };
+              app.renderer.selectedCell = app.selectedCell;
+              app.render();
+            }
+          },
+          maxSets
+        );
+      }
     });
 
     document.getElementById('special-btn').addEventListener('click', () => {
@@ -2263,6 +2428,43 @@
       }
     });
 
+    document.getElementById('reverse-special-btn').addEventListener('click', () => {
+      if (!app.selectedCell) return;
+      const { j, i } = app.selectedCell;
+      const count = Math.abs(app.board.get(j, i));
+      const specialType = app.laws.getSpecialSystemType();
+
+      if (specialType === '3x+1') {
+        app.showInputModal(
+          'Reverse Basis Law (3x+1)',
+          `Apply h² = g + 1: splits 1 pebble from (j=${j},i=${i}) into g at (j=${j-1},i=${i}), -h at (j=${j},i=${i-1}), and 1 at (j=${j},i=${i-2}). How many pebbles?`,
+          count,
+          (num) => {
+            const success = app.applyAction(laws => laws.applyReverseSpecial(j, i, num));
+            if (success) {
+              app.selectedCell = { j: j - 1, i: i };
+              app.renderer.selectedCell = app.selectedCell;
+              app.render();
+            }
+          }
+        );
+      } else if (specialType === '5x+1') {
+        app.showInputModal(
+          'Reverse Basis Law (5x+1)',
+          `Apply h² = g - h + 1: splits 1 pebble from (j=${j},i=${i}) into g at (j=${j-1},i=${i}), -h at (j=${j},i=${i-1}), and 1 at (j=${j},i=${i-2}). How many pebbles?`,
+          count,
+          (num) => {
+            const success = app.applyAction(laws => laws.applyReverseSpecial(j, i, num));
+            if (success) {
+              app.selectedCell = { j: j - 1, i: i };
+              app.renderer.selectedCell = app.selectedCell;
+              app.render();
+            }
+          }
+        );
+      }
+    });
+
     // Persistence buttons
     document.getElementById('copy-url-btn').addEventListener('click', () => persistence.copyURL());
     document.getElementById('save-local-btn').addEventListener('click', () => persistence.saveToLocalStorage());
@@ -2285,6 +2487,12 @@
 
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
+      // Don't trigger shortcuts when typing in input fields
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+        return;
+      }
+
+      // Undo/Redo
       if (e.ctrlKey || e.metaKey) {
         if (e.key === 'z' && !e.shiftKey) {
           e.preventDefault();
@@ -2293,6 +2501,92 @@
           e.preventDefault();
           app.redo();
         }
+        return;
+      }
+
+      // Conservation law shortcuts (l, r, u, d, f, b)
+      if (!app.selectedCell) return;
+
+      const { j, i } = app.selectedCell;
+      const count = Math.abs(app.board.get(j, i));
+      const numPebbles = e.shiftKey ? count : 1; // Shift = max, no shift = 1
+
+      switch(e.key.toLowerCase()) {
+        case 'l': // Left
+          e.preventDefault();
+          const maxLeft = Math.floor(count / app.board.g);
+          if (maxLeft > 0) {
+            const numLeft = e.shiftKey ? maxLeft : 1;
+            const success = app.applyAction(laws => laws.applyGMultiplyLeft(j - 1, i, numLeft));
+            if (success) {
+              app.selectedCell = { j: j - 1, i: i };
+              app.renderer.selectedCell = app.selectedCell;
+              app.render();
+            }
+          }
+          break;
+
+        case 'r': // Right
+          e.preventDefault();
+          if (count > 0) {
+            const success = app.applyAction(laws => laws.applyGMultiplyRight(j, i, numPebbles));
+            if (success) {
+              app.selectedCell = { j: j + 1, i: i };
+              app.renderer.selectedCell = app.selectedCell;
+              app.render();
+            }
+          }
+          break;
+
+        case 'u': // Up
+          e.preventDefault();
+          const maxUp = Math.floor(count / app.board.h);
+          if (maxUp > 0) {
+            const numUp = e.shiftKey ? maxUp : 1;
+            const success = app.applyAction(laws => laws.applyHMultiplyUp(j, i, numUp));
+            if (success) {
+              app.selectedCell = { j: j, i: i + 1 };
+              app.renderer.selectedCell = app.selectedCell;
+              app.render();
+            }
+          }
+          break;
+
+        case 'd': // Down
+          e.preventDefault();
+          if (count > 0) {
+            const success = app.applyAction(laws => laws.applyHMultiplyDown(j, i, numPebbles));
+            if (success) {
+              app.selectedCell = { j: j, i: i - 1 };
+              app.renderer.selectedCell = app.selectedCell;
+              app.render();
+            }
+          }
+          break;
+
+        case 'f': // Forward (Basis Law)
+          e.preventDefault();
+          if (count > 0 && (app.laws.is3x1System() || app.laws.is5x1System())) {
+            const success = app.applyAction(laws => laws.applySpecial(j, i, numPebbles));
+            if (success) {
+              app.selectedCell = { j: j + 1, i: i + 2 };
+              app.renderer.selectedCell = app.selectedCell;
+              app.render();
+            }
+          }
+          break;
+
+        case 'b': // Backward (Reverse Basis Law)
+          e.preventDefault();
+          if (count > 0 && (app.laws.is3x1System() || app.laws.is5x1System())) {
+            const success = app.applyAction(laws => laws.applyReverseSpecial(j, i, numPebbles));
+            if (success) {
+              app.selectedCell = { j: j - 1, i: i - 2 };
+              app.renderer.selectedCell = app.selectedCell;
+              app.render();
+            }
+          }
+          break;
       }
     });
 
