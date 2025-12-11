@@ -479,7 +479,30 @@
     </div>
 
     <div class="panel">
-      <h2>Conservation Laws</h2>
+      <h2>Conservation Law Controls</h2>
+
+      <details style="margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 4px; cursor: pointer;">
+        <summary style="font-weight: 600; color: #007bff; user-select: none; outline: none;">
+          ℹ️ Learn More: Force Conservation Analogy
+        </summary>
+        <div style="margin-top: 12px; padding: 12px; background: white; border-left: 3px solid #007bff; font-size: 12px; line-height: 1.7;">
+          <div style="color: #555;">
+            The board can be considered to be suffused with an <strong>electric field</strong> whose strength at position <span class="force-field"></span>.
+            Each pebble carries a unit charge: <strong style="color: #000;">white = +1</strong>, <strong>black = -1</strong>.
+            The net charge at square <span class="force-charge"></span> (positive, negative, or zero).
+          </div>
+          <div style="margin-top: 8px; color: #555;">
+            The <strong>electric force</strong> at each square equals charge × field strength = <span class="force-at-square"></span>.
+            Across the entire board, the <strong>net force is always zero</strong>:
+          </div>
+          <div id="force-conservation-eq" style="margin: 12px 0; padding: 10px; background: #f8f9fa; border-radius: 4px; text-align: center;">
+          </div>
+          <div style="color: #555;">
+            All operations preserve this <strong>force conservation</strong> — they rearrange charges without changing the net force.
+          </div>
+        </div>
+      </details>
+
       <div class="selected-info" id="selected-info">
         No cell selected. Click a cell on the board to select it.
       </div>
@@ -500,10 +523,9 @@
       <div style="font-size: 12px; margin-top: 8px; color: #666; line-height: 1.6;">
         <strong>Keyboard shortcuts:</strong> Keys apply operations with 1 pebble. Hold <strong>Shift</strong> to use maximum available pebbles.
       </div>
-      <div id="special-info" style="font-size: 12px; margin-top: 8px; color: #666;"></div>
+
       <div style="margin-top: 10px; font-size: 12px; color: #666; line-height: 1.6;">
-        <strong>About:</strong> Conservation laws preserve the polynomial identity while transforming board state.
-        <strong>Spread</strong> mode automatically repeats Left/Up operations to reduce multiples to singletons.
+        <strong>Spread mode:</strong> Automatically repeats Left/Up operations to reduce multiples to singletons.
       </div>
       <label style="margin-top: 10px; display: block;"><input type="checkbox" id="spread-mode"> Spread Mode</label>
     </div>
@@ -1719,6 +1741,9 @@
         // Render basis law
         this.renderBasisLaw();
 
+        // Render force conservation formulas
+        this.renderForceConservation();
+
         const statusDiv = document.getElementById('polynomial-status');
         if (this.board.isZeroState()) {
           statusDiv.innerHTML = '<span class="status-badge status-zero">✓ Zero state reached!</span>';
@@ -1837,8 +1862,8 @@
         let latexStr = 'g = ';
         let terms = [];
 
-        // Add all non-zero terms from the base-h expansion
-        for (let power = digits.length - 1; power >= 0; power--) {
+        // Add all non-zero terms from the base-h expansion (except power 0, which gets subtracted)
+        for (let power = digits.length - 1; power >= 1; power--) {
           const digit = digits[digits.length - 1 - power];
           if (digit > 0) {
             let term = '';
@@ -1847,17 +1872,16 @@
               term += 'h^{' + power + '}';
             } else if (power === 1) {
               term += 'h';
-            } else if (power === 0 && digit > 1) {
-              // Just the digit
-            } else if (power === 0 && digit === 1) {
-              term = '1';
             }
             if (term) terms.push(term);
           }
         }
 
-        latexStr += terms.join(' + ');
-        latexStr += ' - 1';
+        if (terms.length > 0) {
+          latexStr += terms.join(' + ') + ' - 1';
+        } else {
+          latexStr += '-1';
+        }
 
         const displayElement = document.getElementById('basis-law-display');
         const sectionElement = document.getElementById('basis-law-section');
@@ -1876,6 +1900,66 @@
           }
         } else {
           sectionElement.style.display = 'none';
+        }
+      }
+
+      renderForceConservation() {
+        // Render inline LaTeX formulas for force conservation analogy
+        const fieldSpan = document.querySelector('.force-field');
+        const chargeSpan = document.querySelector('.force-charge');
+        const forceSpan = document.querySelector('.force-at-square');
+        const eqDiv = document.getElementById('force-conservation-eq');
+
+        if (!fieldSpan || !chargeSpan || !forceSpan || !eqDiv) return;
+
+        try {
+          // Field strength at position (j,i)
+          katex.render('(j,i)', fieldSpan, {
+            throwOnError: false,
+            displayMode: false
+          });
+
+          const fieldAfter = document.createElement('span');
+          fieldAfter.textContent = ' is ';
+          fieldSpan.parentNode.insertBefore(fieldAfter, fieldSpan.nextSibling);
+
+          const fieldFormula = document.createElement('span');
+          katex.render('g^{o-1-j} \\cdot h^i', fieldFormula, {
+            throwOnError: false,
+            displayMode: false
+          });
+          fieldAfter.parentNode.insertBefore(fieldFormula, fieldAfter.nextSibling);
+
+          // Net charge
+          katex.render('(j,i)', chargeSpan, {
+            throwOnError: false,
+            displayMode: false
+          });
+
+          const chargeAfter = document.createElement('span');
+          chargeAfter.textContent = ' is ';
+          chargeSpan.parentNode.insertBefore(chargeAfter, chargeSpan.nextSibling);
+
+          const chargeFormula = document.createElement('span');
+          katex.render('c_{j,i}', chargeFormula, {
+            throwOnError: false,
+            displayMode: false
+          });
+          chargeAfter.parentNode.insertBefore(chargeFormula, chargeAfter.nextSibling);
+
+          // Force at each square
+          katex.render('c_{j,i} \\cdot g^{o-1-j} \\cdot h^i', forceSpan, {
+            throwOnError: false,
+            displayMode: false
+          });
+
+          // Main conservation equation
+          katex.render('\\sum_{j,i} c_{j,i} \\cdot g^{o-1-j} \\cdot h^i = 0', eqDiv, {
+            throwOnError: false,
+            displayMode: true
+          });
+        } catch (e) {
+          console.error('Error rendering force conservation formulas:', e);
         }
       }
 
@@ -1945,16 +2029,6 @@
         document.getElementById('undo-btn').disabled = !this.history.canUndo();
         document.getElementById('redo-btn').disabled = !this.history.canRedo();
         document.getElementById('animate-btn').disabled = this.history.states.length <= 1;
-
-        // Update special system info
-        const specialType = this.laws.getSpecialSystemType();
-        const basisFormula = this.laws.getBasisLawDescription();
-        const specialInfo = document.getElementById('special-info');
-        if (specialType) {
-          specialInfo.innerHTML = `<strong>Special System Detected:</strong> ${specialType} (g=${this.board.g}, h=${this.board.h})<br><strong>Basis Law:</strong> ${basisFormula}`;
-        } else {
-          specialInfo.innerHTML = `<em>No special Collatz relation detected</em>`;
-        }
 
         if (this.selectedCell) {
           const { j, i } = this.selectedCell;

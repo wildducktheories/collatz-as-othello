@@ -136,6 +136,20 @@ All operations preserve the polynomial identity by applying valid algebraic tran
     - g=11, h=2: g+1=12=1100₂ → g = h³ + h² - 1 (11x+1 system)
 - **Assertion**: Every operation validates polynomial sum is unchanged
 
+#### Force Conservation Analogy
+
+The conservation laws can be understood through a physical analogy:
+
+- **Electric Field**: The board can be considered to be suffused with an electric field whose strength at position (j,i) is g^(o-1-j)·h^i
+- **Pebbles as Charges**: Each pebble carries a unit charge: white = +1, black = -1
+- **Net Charge**: The net charge at square (j,i) is c_{j,i} (positive, negative, or zero)
+- **Force**: The electric force at each square equals charge × field strength = c_{j,i}·g^(o-1-j)·h^i
+- **Conservation Principle**: Across the entire board, the net force is always zero:
+
+  **Σ c_{j,i} · g^(o-1-j) · h^i = 0**
+
+All operations preserve this **force conservation** — they rearrange charges (pebbles) without changing the net force. This is why they're called "conservation laws" rather than just "transformations."
+
 ### The Othello Analogy
 
 The board is called "Othello" because:
