@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Othello Board Collatz Cycle Explorer</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
   <style>
     * {
       margin: 0;
@@ -342,7 +344,9 @@
   <div class="container">
     <header>
       <h1>Othello Board Collatz Cycle Explorer</h1>
-      <p>Interactive visualization of Collatz-type cycles using the Othello board analogy</p>
+      <p>Interactive visualization of Collatz-type cycles using the Othello board analogy.
+      See <a href="https://drive.google.com/file/d/1jdISz5k3N2xCxASek1AGC6UGJeYRF0V1/view" target="_blank" style="color: #ffffff; text-decoration: underline;">this paper</a> for background.
+      For questions or comments, see <a href="https://www.reddit.com/r/Collatz/comments/1pj1hjv/announcing_the_interactive_collatz_othello_board/" target="_blank" style="color: #ffffff; text-decoration: underline;">this Reddit thread</a>.</p>
     </header>
 
     <div class="config-panel panel">
@@ -366,15 +370,15 @@
       <div class="input-group">
         <div class="input-field">
           <label>p:</label>
-          <span id="output-p">1093</span>
+          <a href="#" id="output-p" style="color: #0066cc; cursor: pointer;">1093</a>
         </div>
         <div class="input-field">
           <label>b:</label>
-          <span id="output-b">0b10001000101</span>
+          <a href="#" id="output-b" style="color: #0066cc; cursor: pointer;">0b10001000101</a>
         </div>
         <div class="input-field">
           <label>oe:</label>
-          <span id="output-oe">OEEOEEEO</span>
+          <a href="#" id="output-oe" style="color: #0066cc; cursor: pointer;">OEEOEEEO</a>
         </div>
       </div>
 
@@ -404,6 +408,7 @@
         <div style="font-size: 13px; line-height: 1.8; color: #666;">
           <strong>g=3, h=2:</strong>
           <a href="?p=9&g=3&h=2">p=9</a>,
+          <a href="?p=37&g=3&h=2">p=37</a>,
           <a href="?p=73&g=3&h=2">p=73</a>,
           <a href="?p=585&g=3&h=2">p=585</a>,
           <a href="?p=281&g=3&h=2">p=281</a>,
@@ -416,6 +421,13 @@
           <a href="?p=133&g=5&h=2">p=133</a>,
           <a href="?p=1045&g=5&h=2">p=1045</a>,
           <a href="?p=1093&g=5&h=2">p=1093</a>
+          <br>
+          <strong>g=181, h=2:</strong>
+          <a href="?p=131089&g=181&h=2">p=131089</a>,
+          <a href="?p=131201&g=181&h=2">p=131201</a>
+          <br>
+          <strong>g=8, h=3:</strong>
+          <a href="?p=585&g=8&h=3">p=585</a>
         </div>
       </div>
       <div id="validation-message"></div>
@@ -458,10 +470,23 @@
 
     <div class="polynomial-panel panel">
       <h2>Polynomial Representation</h2>
+      <div id="polynomial-identity" style="margin-bottom: 15px; font-size: 16px; font-weight: 600; color: #555;"></div>
       <div class="polynomial-display" id="polynomial-display">
         No board initialized. Click "Initialize Board" above to start.
       </div>
       <div id="polynomial-status"></div>
+
+      <div style="margin-top: 20px;">
+        <div id="k-heading" style="margin-bottom: 15px; font-size: 16px; color: #555;"></div>
+        <div class="polynomial-display" id="k-polynomial-display" style="font-size: 14px;">
+        </div>
+      </div>
+
+      <div style="margin-top: 15px;">
+        <div id="d-heading" style="margin-bottom: 15px; font-size: 16px; color: #555;"></div>
+        <div class="polynomial-display" id="d-polynomial-display" style="font-size: 14px;">
+        </div>
+      </div>
     </div>
 
     <div class="persistence-panel panel">
@@ -555,7 +580,15 @@
       }
 
       toJSON() {
+        // Get current p value from input field
+        const p = parseP(document.getElementById('input-p').value);
+        const b = p > 0 ? '0b' + p.toString(2) : '';
+        const oe = p > 0 ? toOENotation(p) : '';
+
         return {
+          p: p,
+          b: b,
+          oe: oe,
           o: this.o,
           e: this.e,
           g: this.g,
@@ -569,6 +602,13 @@
       static fromJSON(json) {
         const board = new BoardState(json.o, json.e, json.g, json.h, json.q, json.x0);
         board.grid = new Map(json.grid);
+
+        // Restore p value to input field if present
+        if (json.p) {
+          document.getElementById('input-p').value = json.p;
+          updateBinaryDisplay();
+        }
+
         return board;
       }
     }
@@ -1304,8 +1344,38 @@
 
       updatePolynomialDisplay() {
         const terms = this.board.getPolynomial();
-        const polynomialStr = this.formatPolynomial(terms);
-        document.getElementById('polynomial-display').textContent = polynomialStr;
+        const latexStr = this.formatPolynomialLatex(terms);
+        const displayElement = document.getElementById('polynomial-display');
+
+        // Render identity equation
+        const identityElement = document.getElementById('polynomial-identity');
+        const identityLatex = 'p(g,h) = q \\cdot k(g,h) - x_0 \\cdot d(g,h) = 0';
+        try {
+          katex.render(identityLatex, identityElement, {
+            throwOnError: false,
+            displayMode: false
+          });
+        } catch (e) {
+          console.error('KaTeX identity rendering error:', e);
+          identityElement.textContent = 'p(g,h) = q·k(g,h) - x₀·d(g,h) = 0';
+        }
+
+        // Render polynomial using KaTeX
+        try {
+          katex.render(latexStr, displayElement, {
+            throwOnError: false,
+            displayMode: true
+          });
+        } catch (e) {
+          console.error('KaTeX rendering error:', e);
+          displayElement.textContent = this.formatPolynomial(terms);
+        }
+
+        // Render k(g,h) polynomial
+        this.renderKPolynomial();
+
+        // Render d(g,h) polynomial
+        this.renderDPolynomial();
 
         const statusDiv = document.getElementById('polynomial-status');
         if (this.board.isZeroState()) {
@@ -1313,6 +1383,100 @@
         } else {
           const nonZero = terms.filter(t => t.coeff !== 0).length;
           statusDiv.innerHTML = `<span class="status-badge status-active">${nonZero} non-zero term${nonZero !== 1 ? 's' : ''}</span>`;
+        }
+      }
+
+      renderKPolynomial() {
+        const p = parseP(document.getElementById('input-p').value);
+        if (isNaN(p) || p <= 0) return;
+
+        // Render heading
+        const headingElement = document.getElementById('k-heading');
+        try {
+          katex.render('k(g,h)', headingElement, {
+            throwOnError: false,
+            displayMode: false
+          });
+        } catch (e) {
+          headingElement.textContent = 'k(g,h)';
+        }
+
+        try {
+          const structure = parseBinaryToStructure(p);
+          const monomials = structure.monomials;
+
+          // Format k(g,h) as sum of monomials
+          const parts = monomials.map((m, idx) => {
+            const sign = idx === 0 ? '' : ' + ';
+            let term = '';
+            if (m.gPower > 0) {
+              term += 'g';
+              if (m.gPower > 1) term += '^{' + m.gPower + '}';
+            }
+            if (m.hPower > 0) {
+              term += 'h';
+              if (m.hPower > 1) term += '^{' + m.hPower + '}';
+            }
+            if (term === '') term = '1';
+            return sign + term;
+          });
+
+          const latexStr = parts.join('');
+          const displayElement = document.getElementById('k-polynomial-display');
+
+          katex.render(latexStr, displayElement, {
+            throwOnError: false,
+            displayMode: true
+          });
+        } catch (e) {
+          console.error('Error rendering k(g,h):', e);
+        }
+      }
+
+      renderDPolynomial() {
+        const o = parseInt(document.getElementById('output-o').textContent);
+        const e = parseInt(document.getElementById('output-e').textContent);
+
+        if (isNaN(o) || isNaN(e)) return;
+
+        // Render heading
+        const headingElement = document.getElementById('d-heading');
+        try {
+          katex.render('d(g,h)', headingElement, {
+            throwOnError: false,
+            displayMode: false
+          });
+        } catch (e) {
+          headingElement.textContent = 'd(g,h)';
+        }
+
+        // Format d(g,h) = h^e - g^o
+        let latexStr = '';
+        if (e > 0) {
+          latexStr += 'h';
+          if (e > 1) latexStr += '^{' + e + '}';
+        } else {
+          latexStr += '1';
+        }
+
+        latexStr += ' - ';
+
+        if (o > 0) {
+          latexStr += 'g';
+          if (o > 1) latexStr += '^{' + o + '}';
+        } else {
+          latexStr += '1';
+        }
+
+        const displayElement = document.getElementById('d-polynomial-display');
+
+        try {
+          katex.render(latexStr, displayElement, {
+            throwOnError: false,
+            displayMode: true
+          });
+        } catch (e) {
+          console.error('Error rendering d(g,h):', e);
         }
       }
 
@@ -1345,6 +1509,37 @@
           });
 
         return parts.join('') || '0';
+      }
+
+      formatPolynomialLatex(terms) {
+        if (terms.length === 0) return '0 = 0';
+
+        const parts = terms
+          .filter(t => t.coeff !== 0)
+          .map((t, idx) => {
+            const sign = t.coeff > 0 ? (idx === 0 ? '' : ' + ') : ' - ';
+            const absCoeff = Math.abs(t.coeff);
+            const coeffStr = absCoeff === 1 && (t.gPower > 0 || t.hPower > 0) ? '' : absCoeff.toString();
+
+            let term = coeffStr;
+            if (t.gPower > 0) {
+              term += 'g';
+              if (t.gPower > 1) term += '^{' + t.gPower + '}';
+            }
+            if (t.hPower > 0) {
+              term += 'h';
+              if (t.hPower > 1) term += '^{' + t.hPower + '}';
+            }
+            if (term === '') term = '1';
+
+            if (t.gPower === 0 && t.hPower === 0 && (t.j !== -1 || t.i !== 0)) {
+              term += 'q';
+            }
+
+            return sign + term;
+          });
+
+        return parts.join('') + ' = 0' || '0 = 0';
       }
 
       updateControlPanel() {
@@ -1496,9 +1691,24 @@
     function updateBinaryDisplay() {
       const p = parseP(document.getElementById('input-p').value);
       if (!isNaN(p) && p > 0) {
-        document.getElementById('output-p').textContent = p;
-        document.getElementById('output-b').textContent = '0b' + p.toString(2);
-        document.getElementById('output-oe').textContent = toOENotation(p);
+        const pValue = p;
+        const bValue = '0b' + p.toString(2);
+        const oeValue = toOENotation(p);
+
+        const pLink = document.getElementById('output-p');
+        const bLink = document.getElementById('output-b');
+        const oeLink = document.getElementById('output-oe');
+
+        pLink.textContent = pValue;
+        bLink.textContent = bValue;
+        oeLink.textContent = oeValue;
+
+        // Update link hrefs to use the respective p format
+        const g = document.getElementById('input-g').value;
+        const h = document.getElementById('input-h').value;
+        pLink.href = `?p=${pValue}&g=${g}&h=${h}`;
+        bLink.href = `?p=${bValue}&g=${g}&h=${h}`;
+        oeLink.href = `?p=${oeValue}&g=${g}&h=${h}`;
       }
     }
 
@@ -1790,6 +2000,16 @@
       }
     }
 
+    // Stop cycle animation if running
+    function stopCycle() {
+      if (cycleInterval) {
+        clearInterval(cycleInterval);
+        cycleInterval = null;
+        const cycleBtn = document.getElementById('cycle-btn');
+        cycleBtn.textContent = 'Cycle';
+      }
+    }
+
     // Update derived parameters from p, g, h
     function updateDerivedParameters() {
       const p = parseP(document.getElementById('input-p').value);
@@ -1848,6 +2068,11 @@
       updateDerivedParameters();
       updateURLParams();
     });
+
+    // Stop cycle animation when input fields receive focus
+    document.getElementById('input-p').addEventListener('focus', stopCycle);
+    document.getElementById('input-g').addEventListener('focus', stopCycle);
+    document.getElementById('input-h').addEventListener('focus', stopCycle);
 
     // Configuration
     document.getElementById('init-btn').addEventListener('click', () => {
