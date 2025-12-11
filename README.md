@@ -62,11 +62,13 @@ All formats generate clickable links for easy sharing.
 - **P-Cycle Display**: Shows all p-values in the current cycle
 - **Conservation Assertion**: Validates polynomial sum preservation (Σ c_{j,i}·g^(o-1-j)·h^i) after every operation
 
-### Persistence
+### Persistence & Debugging
 
 - **URL Sharing**: Encode complete board state in URL parameters
 - **Local Storage**: Save and load named configurations
-- **JSON Export/Import**: Download/upload board configurations
+- **JSON Export/Import**: Download/upload board configurations with full undo/redo history
+- **History Replay**: Export includes complete session history for debugging
+- **Animation**: Step-by-step playback of history at 500ms intervals
 - **Anchor Parameter**: Maintain stable p-cycle ordering when navigating
 
 ## Getting Started
@@ -81,18 +83,23 @@ All formats generate clickable links for easy sharing.
 
 ### Example Systems
 
+**3x+1 System (g=3, h=2)**
+- Base examples: p=9, 17, 33, 65
+- Additional: p=37, 73, 281, 293, 585, 2119, 4681, 8301
+- Relationship: g = h² - 1 (3 = 4 - 1)
+
 **5x+1 System (g=5, h=2)**
-- Default: p=1093 (193 x-cycle element)
-- Example: p=293 (23 x-cycle element)
+- Base examples: p=9, 17, 33, 65
+- Additional: p=133, 1045, 1093
 - Relationship: g = h² + h - 1 (5 = 4 + 2 - 1)
 
-**3x+1 System (g=3, h=2)**
-- Example: p=37, p=293
-- Relationship: g = h² - 1 (3 = 4 - 1)
+**7x+1 System (g=7, h=2)**
+- Base examples: p=9, 17, 33, 65
+- Relationship: g = h² + 2h - 1 (7 = 4 + 4 - 1)
 
 **Other Systems**
 - g=8, h=3: p=585
-- g=181, h=14: p=131089, p=131201
+- g=181, h=2: p=131089, 131201
 
 ### Spread Mode
 
@@ -188,11 +195,12 @@ See [CLAUDE.md](CLAUDE.md) for detailed implementation notes.
 
 Contributions welcome! Areas of interest:
 
-- Animation of pebble movements
+- Enhanced animation of individual pebble movements during transformations
 - Mobile/touch interface improvements
 - Additional example configurations
 - Performance optimizations for large boards
 - Export board state as images
+- Adjustable animation speed control
 
 ## References
 
