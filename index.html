@@ -349,38 +349,51 @@
       <h2>Configuration</h2>
       <div class="input-group">
         <div class="input-field">
-          <label>p (binary parameter):</label>
+          <label>p (path):</label>
           <input type="text" id="input-p" value="1093">
         </div>
         <div class="input-field">
-          <label>g (odd multiplier):</label>
+          <label>g (multiplier):</label>
           <input type="number" id="input-g" value="3" min="2">
         </div>
         <div class="input-field">
-          <label>h (even divisor):</label>
+          <label>h (divisor):</label>
           <input type="number" id="input-h" value="2" min="2">
         </div>
       </div>
+
+      <h3 style="font-size: 14px; font-weight: 600; margin: 15px 0 8px 0; color: #555;">Identifier</h3>
       <div class="input-group">
         <div class="input-field">
-          <label>o (odd steps):</label>
-          <div id="output-o" class="output-field">3</div>
+          <label>p:</label>
+          <span id="output-p">1093</span>
         </div>
         <div class="input-field">
-          <label>e (even steps):</label>
-          <div id="output-e" class="output-field">7</div>
+          <label>b:</label>
+          <span id="output-b">0b10001000101</span>
         </div>
         <div class="input-field">
-          <label>q (odd addend):</label>
-          <div id="output-q" class="output-field">1</div>
+          <label>oe:</label>
+          <span id="output-oe">OEEOEEEO</span>
+        </div>
+      </div>
+
+      <div class="input-group">
+        <div class="input-field">
+          <label>o (multipler steps):</label>
+          <span id="output-o">3</span>
+        </div>
+        <div class="input-field">
+          <label>e (divisor steps):</label>
+          <span id="output-e">7</span>
+        </div>
+        <div class="input-field">
+          <label>q (quotient):</label>
+          <span id="output-q">1</span>
         </div>
         <div class="input-field">
           <label>x₀ (cycle start):</label>
-          <div id="output-x0" class="output-field">17</div>
-        </div>
-        <div class="input-field">
-          <label>b (binary):</label>
-          <div id="output-b" class="output-field-binary">0b10001000101</div>
+          <span id="output-x0">17</span>
         </div>
       </div>
       <div class="input-group">
@@ -1162,8 +1175,8 @@
       }
 
       initialize(o, e, g, h, q, x0) {
-        if (o < 1 || e < 1 || g < 2 || h < 2 || q === 0 || x0 === 0) {
-          throw new Error('Invalid parameters: o, e must be positive; g, h must be at least 2; q and x0 must be non-zero');
+        if (o < 0 || e < 0 || g < 2 || h < 2 || q === 0 || x0 === 0) {
+          throw new Error('Invalid parameters: o, e must be non-negative; g, h must be at least 2; q and x0 must be non-zero');
         }
 
         this.board = new BoardState(o, e, g, h, q, x0);
@@ -1201,32 +1214,8 @@
         }
 
         try {
-          // Parse binary structure to get monomials
-          const binary = p.toString(2);
-          const bits = binary.split('').reverse();
-          const monomials = [];
-          let hExponent = 0;
-          let i = 0;
-
-          while (i < bits.length - 1) {
-            if (bits[i] === '1') {
-              monomials.push({ hPower: hExponent });
-              i++;
-              let evenCount = 0;
-              while (i < bits.length - 1 && bits[i] === '0') {
-                evenCount++;
-                i++;
-              }
-              hExponent += evenCount;
-            } else {
-              i++;
-            }
-          }
-
-          const o = monomials.length;
-          for (let j = 0; j < monomials.length; j++) {
-            monomials[j].gPower = o - 1 - j;
-          }
+          // Use the correct parsing function that handles even p values
+          const { monomials } = parseBinaryToStructure(p);
 
           // Place x₀ term at the start: x₀·g^o at position (-1, 0)
           this.board.set(-1, 0, this.board.x0);
@@ -1352,7 +1341,7 @@
               term += 'q';
             }
 
-            return sign + term;
+            return sign + term + " = 0";
           });
 
         return parts.join('') || '0';
@@ -1481,6 +1470,8 @@
       const url = new URL(window.location.href);
       // Remove old state parameter if present (query params take precedence)
       url.searchParams.delete('state');
+      // Remove anchor when manually changing inputs (will be reset to current p on next display)
+      url.searchParams.delete('anchor');
       url.searchParams.set('p', p);
       url.searchParams.set('g', g);
       url.searchParams.set('h', h);
@@ -1490,10 +1481,24 @@
     }
 
     // Update binary representation
+    // Convert p to OE notation
+    function toOENotation(p) {
+      const binary = p.toString(2);
+      const bits = binary.split('').reverse(); // LSB first
+      let oe = '';
+      // Skip the stop bit (highest bit)
+      for (let i = 0; i < bits.length - 1; i++) {
+        oe += bits[i] === '1' ? 'O' : 'E';
+      }
+      return oe;
+    }
+
     function updateBinaryDisplay() {
       const p = parseP(document.getElementById('input-p').value);
       if (!isNaN(p) && p > 0) {
+        document.getElementById('output-p').textContent = p;
         document.getElementById('output-b').textContent = '0b' + p.toString(2);
+        document.getElementById('output-oe').textContent = toOENotation(p);
       }
     }
 
@@ -1617,20 +1622,33 @@
 
     // Display x-cycle below the board
     function displayXCycle() {
-      const p = parseP(document.getElementById('input-p').value);
+      const currentP = parseP(document.getElementById('input-p').value);
       const g = parseInt(document.getElementById('input-g').value);
       const h = parseInt(document.getElementById('input-h').value);
 
       const container = document.getElementById('x-cycle-display');
       if (!container) return;
 
-      if (isNaN(p) || p <= 0 || isNaN(g) || g < 2 || isNaN(h) || h < 2) {
+      if (isNaN(currentP) || currentP <= 0 || isNaN(g) || g < 2 || isNaN(h) || h < 2) {
         container.innerHTML = '';
         return;
       }
 
       try {
-        const pCycle = enumeratePCycle(p);
+        // Get anchor from URL or use current p as default
+        let url = new URL(window.location.href);
+        let anchorP = url.searchParams.has('anchor')
+          ? parseInt(url.searchParams.get('anchor'))
+          : currentP;
+
+        // If no anchor was set, set it now to preserve cycle order
+        if (!url.searchParams.has('anchor')) {
+          url.searchParams.set('anchor', anchorP);
+          window.history.replaceState({}, '', url);
+        }
+
+        // Generate p-cycle from anchor point and calculate corresponding x values
+        const pCycle = enumeratePCycle(anchorP);
         const xCycle = calculateXCycle(pCycle, g, h);
 
         let html = '<strong>x-cycle:</strong> [';
@@ -1638,12 +1656,15 @@
         xCycle.forEach((item, idx) => {
           if (idx > 0) html += ', ';
 
-          if (idx === 0) {
-            // First element, no link
-            html += item.x0;
+          // Check if this item's p matches currentP
+          const isCurrent = (item.p == currentP);
+
+          if (isCurrent) {
+            // Current element - show as plain text, no link
+            html += `<span>${item.x0}</span>`;
           } else {
-            // Other elements, add clickable link that updates without navigation
-            html += `<a href="#" class="x-cycle-link" data-p="${item.p}" data-g="${g}" data-h="${h}" style="cursor:pointer;">${item.x0}</a>`;
+            // Other elements - add clickable link
+            html += `<a href="#" class="x-cycle-link" data-p="${item.p}" data-g="${g}" data-h="${h}" data-anchor="${anchorP}" style="cursor:pointer;" title="p=${item.p}">${item.x0}</a>`;
           }
         });
 
@@ -1658,6 +1679,7 @@
             const newP = link.getAttribute('data-p');
             const newG = link.getAttribute('data-g');
             const newH = link.getAttribute('data-h');
+            const anchor = link.getAttribute('data-anchor');
 
             // Update input fields
             document.getElementById('input-p').value = newP;
@@ -1668,11 +1690,12 @@
             updateBinaryDisplay();
             updateDerivedParameters();
 
-            // Update URL without page reload
+            // Update URL without page reload, preserving anchor
             const url = new URL(window.location.href);
             url.searchParams.set('p', newP);
             url.searchParams.set('g', newG);
             url.searchParams.set('h', newH);
+            url.searchParams.set('anchor', anchor);
             window.history.pushState({}, '', url);
 
             // Reinitialize board
@@ -1729,6 +1752,10 @@
       url.searchParams.set('p', newP);
       url.searchParams.set('g', g);
       url.searchParams.set('h', h);
+      // Preserve anchor if it exists, otherwise set it to the new p
+      if (!url.searchParams.has('anchor')) {
+        url.searchParams.set('anchor', newP);
+      }
       window.history.pushState({}, '', url);
 
       document.getElementById('init-btn').click();
