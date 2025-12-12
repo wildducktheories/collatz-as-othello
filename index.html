@@ -465,6 +465,10 @@
       <canvas id="board-canvas"></canvas>
     </div>
 
+    <div class="selected-info" id="selected-info">
+      No cell selected. Click a cell on the board to select it.
+    </div>
+
     <div class="panel">
       <h2>Cycle Controls</h2>
       <div id="x-cycle-display" style="font-size: 14px; color: #333; margin-bottom: 10px;">Computing x-cycle...</div>
@@ -503,9 +507,6 @@
         </div>
       </details>
 
-      <div class="selected-info" id="selected-info">
-        No cell selected. Click a cell on the board to select it.
-      </div>
       <div class="conservation-laws">
         <div class="law-row">
           <button class="btn-primary" id="g-left-btn" disabled>← ×g Left (l)</button>
@@ -518,6 +519,9 @@
         <div class="law-row">
           <button class="btn-primary" id="special-btn" disabled>Basis Law (f)</button>
           <button class="btn-primary" id="reverse-special-btn" disabled>Reverse Basis Law (b)</button>
+        </div>
+        <div class="law-row">
+          <button class="btn-primary" id="reset-k-btn">Reset k (v)</button>
         </div>
       </div>
       <div style="font-size: 12px; margin-top: 8px; color: #666; line-height: 1.6;">
@@ -601,13 +605,14 @@
 
     // ========== BoardState Class ==========
     class BoardState {
-      constructor(o, e, g, h, q, x0) {
+      constructor(o, e, g, h, q, x0, p = null) {
         this.o = o;
         this.e = e;
         this.g = g;
         this.h = h;
         this.q = q;
         this.x0 = x0;
+        this.p = p;
         this.grid = new Map();
         this.minCol = -1;
         this.maxCol = o - 1;
@@ -644,6 +649,10 @@
           if (count !== 0) return false;
         }
         return true;
+      }
+
+      isEmpty() {
+        return this.isZeroState();
       }
 
       // Calculate the polynomial sum: Σ c_{j,i} * g^{o-1-j} * h^i
@@ -694,7 +703,7 @@
       }
 
       static fromJSON(json) {
-        const board = new BoardState(json.o, json.e, json.g, json.h, json.q, json.x0);
+        const board = new BoardState(json.o, json.e, json.g, json.h, json.q, json.x0, json.p || null);
         board.grid = new Map(json.grid);
 
         // Restore p value to input field if present
@@ -1332,6 +1341,43 @@
 
         return i >= maxPower;
       }
+
+      canResetK() {
+        // Reset k can be performed at any time
+        return true;
+      }
+
+      applyResetK() {
+        // Reset k initializes the board to show the fundamental relationship:
+        // x₀·g^o - x₀·h^e + x₀·d = 0, where d = h^e - g^o
+        // This satisfies force conservation and can be done at any time
+
+        const o = this.board.o;
+        const e = this.board.e;
+        const g = this.board.g;
+        const h = this.board.h;
+        const x0 = this.board.x0;
+
+        // Clear the board first
+        this.board.grid.clear();
+
+        // Calculate d = h^e - g^o
+        const d = Math.pow(h, e) - Math.pow(g, o);
+
+        // Set the three positions:
+        // (-1, 0): x₀ white pebbles → x₀·g^o
+        this.board.set(-1, 0, x0);
+
+        // (o-1, e): x₀ black pebbles → -x₀·h^e
+        this.board.set(o - 1, e, -x0);
+
+        // (o-1, 0): x₀·d pebbles (sign depends on d)
+        if (d !== 0) {
+          this.board.set(o - 1, 0, x0 * d);
+        }
+
+        return true;
+      }
     }
 
     // ========== Persistence Class ==========
@@ -1525,7 +1571,11 @@
           throw new Error('Invalid parameters: o, e must be non-negative; g, h must be at least 2; q and x0 must be non-zero');
         }
 
-        this.board = new BoardState(o, e, g, h, q, x0);
+        // Get p value from input
+        const pInput = document.getElementById('input-p');
+        const p = pInput ? parseP(pInput.value) : null;
+
+        this.board = new BoardState(o, e, g, h, q, x0, p);
         this.generateInitialState();
 
         const canvas = document.getElementById('board-canvas');
@@ -1656,6 +1706,12 @@
           this.renderer.selectedCell = null;
           this.render();
         }
+      }
+
+      resetK() {
+        // Reset k can be performed at any time
+        // It initializes the board with the fundamental d(g,h) relationship
+        return this.applyAction(laws => laws.applyResetK());
       }
 
       startAnimation() {
@@ -1904,13 +1960,19 @@
       }
 
       renderForceConservation() {
+        // Only render once - check if already rendered
+        const eqDiv = document.getElementById('force-conservation-eq');
+        if (!eqDiv) return;
+
+        // If already rendered, skip
+        if (eqDiv.hasAttribute('data-rendered')) return;
+
         // Render inline LaTeX formulas for force conservation analogy
         const fieldSpan = document.querySelector('.force-field');
         const chargeSpan = document.querySelector('.force-charge');
         const forceSpan = document.querySelector('.force-at-square');
-        const eqDiv = document.getElementById('force-conservation-eq');
 
-        if (!fieldSpan || !chargeSpan || !forceSpan || !eqDiv) return;
+        if (!fieldSpan || !chargeSpan || !forceSpan) return;
 
         try {
           // Field strength at position (j,i)
@@ -1958,6 +2020,9 @@
             throwOnError: false,
             displayMode: true
           });
+
+          // Mark as rendered
+          eqDiv.setAttribute('data-rendered', 'true');
         } catch (e) {
           console.error('Error rendering force conservation formulas:', e);
         }
@@ -2046,6 +2111,7 @@
           document.getElementById('h-up-btn').disabled = !this.laws.canApplyHMultiplyUp(j, i);
           document.getElementById('special-btn').disabled = !this.laws.canApplySpecial(j, i);
           document.getElementById('reverse-special-btn').disabled = !this.laws.canApplyReverseSpecial(j, i);
+          // Reset k is always available
         } else {
           document.getElementById('selected-info').textContent = 'No cell selected. Click a cell on the board to select it.';
           document.getElementById('g-right-btn').disabled = true;
@@ -2054,6 +2120,7 @@
           document.getElementById('h-up-btn').disabled = true;
           document.getElementById('special-btn').disabled = true;
           document.getElementById('reverse-special-btn').disabled = true;
+          // Reset k is always available
         }
       }
 
@@ -2800,6 +2867,10 @@
       );
     });
 
+    document.getElementById('reset-k-btn').addEventListener('click', () => {
+      app.resetK();
+    });
+
     // Persistence buttons
     document.getElementById('copy-url-btn').addEventListener('click', () => persistence.copyURL());
     document.getElementById('save-local-btn').addEventListener('click', () => persistence.saveToLocalStorage());
@@ -2927,6 +2998,11 @@
               app.render();
             }
           }
+          break;
+
+        case 'v': // Reset k
+          e.preventDefault();
+          app.resetK();
           break;
       }
     });
