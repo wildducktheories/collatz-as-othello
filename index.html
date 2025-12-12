@@ -522,6 +522,7 @@
         </div>
         <div class="law-row">
           <button class="btn-primary" id="reset-k-btn">Reset k (v)</button>
+          <button class="btn-primary" id="random-btn" disabled>🎲 Random (r)</button>
         </div>
       </div>
       <div style="font-size: 12px; margin-top: 8px; color: #666; line-height: 1.6;">
@@ -1996,6 +1997,115 @@
         return this.applyAction(checkpointAction);
       }
 
+      performRandomAction() {
+        if (!this.selectedCell) return false;
+        const { j, i } = this.selectedCell;
+        const count = Math.abs(this.board.get(j, i));
+
+        // Build list of available actions with their valid ranges
+        const availableActions = [];
+
+        // gRight: needs at least 1 pebble at current cell
+        if (this.laws.canApplyGMultiplyRight(j, i)) {
+          availableActions.push({
+            type: 'gRight',
+            j,
+            i,
+            maxCount: count,
+            moveCell: { j: j + 1, i }
+          });
+        }
+
+        // gLeft: needs at least g pebbles and not at leftmost column
+        if (j > this.board.minCol && this.laws.canApplyGMultiplyLeft(j - 1, i)) {
+          const maxSets = Math.floor(count / this.board.g);
+          if (maxSets > 0) {
+            availableActions.push({
+              type: 'gLeft',
+              j: j - 1,
+              i,
+              maxCount: maxSets,
+              moveCell: { j: j - 1, i }
+            });
+          }
+        }
+
+        // hDown: needs at least 1 pebble
+        if (this.laws.canApplyHMultiplyDown(j, i)) {
+          availableActions.push({
+            type: 'hDown',
+            j,
+            i,
+            maxCount: count,
+            moveCell: { j, i: i - 1 }
+          });
+        }
+
+        // hUp: needs at least h pebbles
+        if (this.laws.canApplyHMultiplyUp(j, i)) {
+          const maxSets = Math.floor(count / this.board.h);
+          if (maxSets > 0) {
+            availableActions.push({
+              type: 'hUp',
+              j,
+              i,
+              maxCount: maxSets,
+              moveCell: { j, i: i + 1 }
+            });
+          }
+        }
+
+        // basisLaw: check if available
+        if (this.laws.canApplySpecial(j, i)) {
+          availableActions.push({
+            type: 'basisLaw',
+            j,
+            i,
+            maxCount: count,
+            moveCell: null  // Complex movement
+          });
+        }
+
+        // reverseBasisLaw: check if available
+        if (this.laws.canApplyReverseSpecial(j, i)) {
+          availableActions.push({
+            type: 'reverseBasisLaw',
+            j,
+            i,
+            maxCount: count,
+            moveCell: null  // Complex movement
+          });
+        }
+
+        if (availableActions.length === 0) {
+          return false;
+        }
+
+        // Pick a random action
+        const randomAction = availableActions[Math.floor(Math.random() * availableActions.length)];
+
+        // Pick a random count between 1 and maxCount
+        const randomCount = Math.floor(Math.random() * randomAction.maxCount) + 1;
+
+        // Execute the action
+        const action = {
+          type: randomAction.type,
+          j: randomAction.j,
+          i: randomAction.i,
+          count: randomCount
+        };
+
+        const success = this.applyAction(action);
+
+        // Update selected cell if the action moved pebbles to a specific location
+        if (success && randomAction.moveCell) {
+          this.selectedCell = randomAction.moveCell;
+          this.renderer.selectedCell = this.selectedCell;
+        }
+
+        return success;
+      }
+
       startAnimation() {
         if (this.animationInterval) {
           this.stopAnimation();
@@ -2391,6 +2501,15 @@
           document.getElementById('special-btn').disabled = !this.laws.canApplySpecial(j, i);
           document.getElementById('reverse-special-btn').disabled = !this.laws.canApplyReverseSpecial(j, i);
           // Reset k is always available
+
+          // Random button is enabled if any action is available
+          const hasAnyAction = this.laws.canApplyGMultiplyRight(j, i) ||
+            (j > this.board.minCol && this.laws.canApplyGMultiplyLeft(j - 1, i) && Math.floor(Math.abs(count) / this.board.g) > 0) ||
+            this.laws.canApplyHMultiplyDown(j, i) ||
+            (this.laws.canApplyHMultiplyUp(j, i) && Math.floor(Math.abs(count) / this.board.h) > 0) ||
+            this.laws.canApplySpecial(j, i) ||
+            this.laws.canApplyReverseSpecial(j, i);
+          document.getElementById('random-btn').disabled = !hasAnyAction;
         } else {
           document.getElementById('selected-info').textContent = 'No cell selected. Click a cell on the board to select it.';
           document.getElementById('g-right-btn').disabled = true;
@@ -2399,6 +2518,7 @@
           document.getElementById('h-up-btn').disabled = true;
           document.getElementById('special-btn').disabled = true;
           document.getElementById('reverse-special-btn').disabled = true;
+          document.getElementById('random-btn').disabled = true;
           // Reset k is always available
         }
       }
@@ -3150,6 +3270,10 @@
       app.resetK();
     });
 
+    document.getElementById('random-btn').addEventListener('click', () => {
+      app.performRandomAction();
+    });
+
     // Persistence buttons
     document.getElementById('copy-url-btn').addEventListener('click', () => persistence.copyURL());
     document.getElementById('save-local-btn').addEventListener('click', () => persistence.saveToLocalStorage());
@@ -3282,6 +3406,11 @@
         case 'v': // Reset k
           e.preventDefault();
           app.resetK();
+          break;
+
+        case 'r': // Random action
+          e.preventDefault();
+          app.performRandomAction();
           break;
       }
     });
