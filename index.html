@@ -1437,7 +1437,13 @@
         const saved = this.getSavedBoards();
         saved[name] = {
           timestamp: Date.now(),
-          state: this.app.board.toJSON()
+          version: 1,
+          currentState: this.app.board.toJSON(),
+          history: {
+            states: this.app.history.states.map(state => state.toJSON()),
+            currentIndex: this.app.history.currentIndex
+          },
+          initialBoard: this.app.initialBoard ? this.app.initialBoard.toJSON() : null
         };
         localStorage.setItem(this.storageKey, JSON.stringify(saved));
         alert(`✓ Configuration saved as "${name}"`);
@@ -1458,13 +1464,38 @@
           return;
         }
 
-        const board = BoardState.fromJSON(saved[name].state);
-        this.app.board = board;
-        this.app.laws = new ConservationLaws(board);
-        this.app.renderer.board = board;
-        this.app.history.clear();
-        this.app.history.push(board);
-        this.app.initialBoard = board.clone();
+        const savedData = saved[name];
+
+        // Support both old format (state only) and new format (with history)
+        if (savedData.version === 1 && savedData.currentState) {
+          // New format with history
+          const board = BoardState.fromJSON(savedData.currentState);
+          this.app.board = board;
+          this.app.laws = new ConservationLaws(board);
+          this.app.renderer.board = board;
+
+          // Restore history by directly assigning states array (same as importJSON)
+          this.app.history.clear();
+          this.app.history.states = savedData.history.states.map(state => BoardState.fromJSON(state));
+          this.app.history.currentIndex = savedData.history.currentIndex;
+
+          // Restore initial board
+          if (savedData.initialBoard) {
+            this.app.initialBoard = BoardState.fromJSON(savedData.initialBoard);
+          } else {
+            this.app.initialBoard = board.clone();
+          }
+        } else {
+          // Old format (backward compatibility)
+          const board = BoardState.fromJSON(savedData.state);
+          this.app.board = board;
+          this.app.laws = new ConservationLaws(board);
+          this.app.renderer.board = board;
+          this.app.history.clear();
+          this.app.history.push(board);
+          this.app.initialBoard = board.clone();
+        }
+
         this.app.render();
       }
 
