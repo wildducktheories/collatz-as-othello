@@ -556,6 +556,13 @@
       </div>
     </div>
 
+    <div class="panel">
+      <h2>Action Statistics</h2>
+      <canvas id="action-stats-canvas" width="700" height="300" style="border: 1px solid #ddd; border-radius: 4px; background: white;"></canvas>
+      <div id="action-stats-legend" style="margin-top: 10px; font-size: 12px; display: flex; flex-wrap: wrap; gap: 15px;"></div>
+      <div id="action-stats-summary" style="margin-top: 10px; font-size: 13px; color: #666;"></div>
+    </div>
+
     <div class="polynomial-panel panel">
       <h2>Polynomial Representation</h2>
       <div id="polynomial-identity" style="margin-bottom: 15px; font-size: 16px; font-weight: 600; color: #555;"></div>
@@ -1750,12 +1757,234 @@
       }
     }
 
+    // ========== Action Statistics Graph Class ==========
+    class ActionStatsGraph {
+      constructor(canvas) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d');
+        this.width = canvas.width;
+        this.height = canvas.height;
+        this.padding = { top: 20, right: 20, bottom: 40, left: 60 };
+
+        // Action type colors
+        this.colors = {
+          'gRight': '#3b82f6',    // blue
+          'gLeft': '#8b5cf6',     // purple
+          'hUp': '#10b981',       // green
+          'hDown': '#f59e0b',     // amber
+          'basisLaw': '#ef4444',  // red
+          'reverseBasisLaw': '#ec4899', // pink
+          'total': '#1f2937'      // dark gray
+        };
+
+        this.labels = {
+          'gRight': '→ Right',
+          'gLeft': '← Left',
+          'hUp': '↑ Up',
+          'hDown': '↓ Down',
+          'basisLaw': 'Basis Law',
+          'reverseBasisLaw': 'Rev Basis',
+          'total': 'Total'
+        };
+      }
+
+      // Compute cumulative counts for each action type over time
+      computeStats(actions, currentIndex) {
+        const stats = {
+          'gRight': [],
+          'gLeft': [],
+          'hUp': [],
+          'hDown': [],
+          'basisLaw': [],
+          'reverseBasisLaw': [],
+          'total': []
+        };
+
+        const counts = {
+          'gRight': 0,
+          'gLeft': 0,
+          'hUp': 0,
+          'hDown': 0,
+          'basisLaw': 0,
+          'reverseBasisLaw': 0
+        };
+
+        let total = 0;
+
+        // Only process actions up to currentIndex
+        const endIndex = Math.min(currentIndex + 1, actions.length);
+
+        for (let i = 0; i < endIndex; i++) {
+          const action = actions[i];
+
+          // Skip checkpoint actions in the graph
+          if (action.type === 'checkpoint') {
+            continue;
+          }
+
+          if (counts.hasOwnProperty(action.type)) {
+            counts[action.type]++;
+            total++;
+          }
+
+          // Record cumulative counts
+          for (const type in counts) {
+            stats[type].push(counts[type]);
+          }
+          stats.total.push(total);
+        }
+
+        return { stats, counts, total };
+      }
+
+      render(actions, currentIndex) {
+        const ctx = this.ctx;
+
+        // Clear canvas
+        ctx.clearRect(0, 0, this.width, this.height);
+
+        if (actions.length === 0 || currentIndex < 0) {
+          ctx.fillStyle = '#999';
+          ctx.font = '14px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('No actions recorded yet', this.width / 2, this.height / 2);
+          return;
+        }
+
+        const { stats, counts, total } = this.computeStats(actions, currentIndex);
+
+        // Find max value for y-axis scaling
+        const maxValue = Math.max(...stats.total, 1);
+        const dataPoints = stats.total.length;
+
+        if (dataPoints === 0) {
+          ctx.fillStyle = '#999';
+          ctx.font = '14px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('No actions to display', this.width / 2, this.height / 2);
+          return;
+        }
+
+        // Draw axes
+        ctx.strokeStyle = '#ddd';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(this.padding.left, this.padding.top);
+        ctx.lineTo(this.padding.left, this.height - this.padding.bottom);
+        ctx.lineTo(this.width - this.padding.right, this.height - this.padding.bottom);
+        ctx.stroke();
+
+        // Draw y-axis labels
+        ctx.fillStyle = '#666';
+        ctx.font = '11px sans-serif';
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+
+        const ySteps = 5;
+        for (let i = 0; i <= ySteps; i++) {
+          const value = Math.round((maxValue * i) / ySteps);
+          const y = this.height - this.padding.bottom - (i * (this.height - this.padding.top - this.padding.bottom) / ySteps);
+          ctx.fillText(value.toString(), this.padding.left - 10, y);
+
+          // Draw grid line
+          ctx.strokeStyle = '#f0f0f0';
+          ctx.beginPath();
+          ctx.moveTo(this.padding.left, y);
+          ctx.lineTo(this.width - this.padding.right, y);
+          ctx.stroke();
+        }
+
+        // Draw x-axis label
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText('Action Index', this.width / 2, this.height - this.padding.bottom + 25);
+
+        // Draw y-axis label
+        ctx.save();
+        ctx.translate(15, this.height / 2);
+        ctx.rotate(-Math.PI / 2);
+        ctx.textAlign = 'center';
+        ctx.fillText('Cumulative Count', 0, 0);
+        ctx.restore();
+
+        // Helper function to map data to canvas coordinates
+        const mapX = (index) => {
+          return this.padding.left + (index / (dataPoints - 1)) * (this.width - this.padding.left - this.padding.right);
+        };
+
+        const mapY = (value) => {
+          return this.height - this.padding.bottom - (value / maxValue) * (this.height - this.padding.top - this.padding.bottom);
+        };
+
+        // Draw lines for each action type
+        const typesToDraw = ['gRight', 'gLeft', 'hUp', 'hDown', 'basisLaw', 'reverseBasisLaw', 'total'];
+
+        for (const type of typesToDraw) {
+          const data = stats[type];
+          if (data.length === 0) continue;
+
+          ctx.strokeStyle = this.colors[type];
+          ctx.lineWidth = type === 'total' ? 2.5 : 1.5;
+          ctx.beginPath();
+
+          for (let i = 0; i < data.length; i++) {
+            const x = mapX(i);
+            const y = mapY(data[i]);
+
+            if (i === 0) {
+              ctx.moveTo(x, y);
+            } else {
+              ctx.lineTo(x, y);
+            }
+          }
+
+          ctx.stroke();
+        }
+
+        // Update legend
+        this.updateLegend(counts, total);
+
+        // Update summary
+        this.updateSummary(total, currentIndex, actions.length);
+      }
+
+      updateLegend(counts, total) {
+        const legendDiv = document.getElementById('action-stats-legend');
+        if (!legendDiv) return;
+
+        const items = [
+          ...Object.keys(counts).map(type => ({
+            type,
+            count: counts[type],
+            label: this.labels[type]
+          })),
+          { type: 'total', count: total, label: this.labels.total }
+        ];
+
+        legendDiv.innerHTML = items.map(item => `
+          <div style="display: flex; align-items: center; gap: 5px;">
+            <div style="width: 20px; height: 3px; background: ${this.colors[item.type]};"></div>
+            <span style="color: #666;">${item.label}: <strong>${item.count}</strong></span>
+          </div>
+        `).join('');
+      }
+
+      updateSummary(total, currentIndex, totalActions) {
+        const summaryDiv = document.getElementById('action-stats-summary');
+        if (!summaryDiv) return;
+
+        const checkpointCount = totalActions - total; // Checkpoints are not counted in stats
+        summaryDiv.textContent = `Showing ${currentIndex + 1} of ${totalActions} actions (${checkpointCount} checkpoints excluded from graph)`;
+      }
+    }
+
     // ========== Application Class ==========
     class Application {
       constructor() {
         this.board = null;
         this.history = new History();
         this.renderer = null;
+        this.statsGraph = null;
         this.laws = null;
         this.selectedCell = null;
         this.initialBoard = null;
@@ -1780,6 +2009,10 @@
 
         const canvas = document.getElementById('board-canvas');
         this.renderer = new Renderer(canvas, this.board);
+
+        const statsCanvas = document.getElementById('action-stats-canvas');
+        this.statsGraph = new ActionStatsGraph(statsCanvas);
+
         this.laws = new ConservationLaws(this.board);
 
         this.initialBoard = this.board.clone();
@@ -2197,6 +2430,9 @@
       render() {
         if (this.renderer) {
           this.renderer.render();
+        }
+        if (this.statsGraph) {
+          this.statsGraph.render(this.history.actions, this.history.currentIndex);
         }
         this.updatePolynomialDisplay();
         this.updateControlPanel();
