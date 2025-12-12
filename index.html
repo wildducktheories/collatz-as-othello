@@ -723,7 +723,7 @@
         this.initialState = initialState;  // Starting BoardState for replay
         this.actions = [];                  // Array of action objects
         this.currentIndex = -1;             // -1 = at initialState, 0 = after actions[0], etc.
-        this.maxSize = 100;                 // Maximum number of actions
+        this.maxSize = 10000;               // Maximum number of actions (increased for animation)
       }
 
       // Record a new action (branching: discards future actions if not at end)
