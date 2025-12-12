@@ -718,49 +718,147 @@
 
     // ========== History Class ==========
     class History {
-      constructor() {
-        this.states = [];
-        this.currentIndex = -1;
-        this.maxSize = 100;
+      constructor(initialState = null) {
+        this.initialState = initialState;  // Starting BoardState for replay
+        this.actions = [];                  // Array of action objects
+        this.currentIndex = -1;             // -1 = at initialState, 0 = after actions[0], etc.
+        this.maxSize = 100;                 // Maximum number of actions
       }
 
-      push(state) {
-        this.states = this.states.slice(0, this.currentIndex + 1);
-        this.states.push(state.clone());
-        if (this.states.length > this.maxSize) {
-          this.states.shift();
+      // Record a new action (branching: discards future actions if not at end)
+      recordAction(action) {
+        // Truncate any future actions (branching)
+        this.actions = this.actions.slice(0, this.currentIndex + 1);
+
+        // Add new action
+        this.actions.push(action);
+
+        // Enforce max size
+        if (this.actions.length > this.maxSize) {
+          this.actions.shift();
+          // initialState becomes the state after first action (would need checkpoint)
         } else {
           this.currentIndex++;
         }
       }
 
       canUndo() {
-        return this.currentIndex > 0;
+        return this.currentIndex >= 0;
       }
 
       canRedo() {
-        return this.currentIndex < this.states.length - 1;
+        return this.currentIndex < this.actions.length - 1;
       }
 
-      undo() {
+      // Returns the action to undo (caller applies inverse or rebuilds from checkpoint)
+      getUndoAction() {
         if (this.canUndo()) {
+          const action = this.actions[this.currentIndex];
           this.currentIndex--;
-          return this.states[this.currentIndex].clone();
+          return action;
         }
         return null;
       }
 
-      redo() {
+      // Returns the action to redo (caller applies action)
+      getRedoAction() {
         if (this.canRedo()) {
           this.currentIndex++;
-          return this.states[this.currentIndex].clone();
+          return this.actions[this.currentIndex];
         }
         return null;
+      }
+
+      // Get current state by replaying actions from initialState or nearest checkpoint
+      getCurrentState() {
+        if (this.currentIndex < 0) {
+          return this.initialState ? this.initialState.clone() : null;
+        }
+
+        // Find the nearest checkpoint at or before currentIndex
+        let checkpointIndex = -1;
+        let checkpointState = this.initialState;
+
+        for (let i = this.currentIndex; i >= 0; i--) {
+          if (this.actions[i].type === 'checkpoint') {
+            checkpointIndex = i;
+            checkpointState = this.actions[i].state;
+            break;
+          }
+        }
+
+        // Replay from checkpoint to currentIndex
+        let state = checkpointState ? checkpointState.clone() : null;
+        if (!state) return null;
+
+        for (let i = checkpointIndex + 1; i <= this.currentIndex; i++) {
+          state = this.applyActionToState(state, this.actions[i]);
+        }
+
+        return state;
+      }
+
+      // Apply an action to a state (used for replay)
+      applyActionToState(state, action) {
+        if (action.type === 'checkpoint') {
+          return action.state.clone();
+        }
+
+        // For regular actions, apply them to the state
+        const laws = new ConservationLaws(state);
+
+        switch (action.type) {
+          case 'gRight':
+            laws.applyGMultiplyRight(action.j, action.i, action.count);
+            break;
+          case 'gLeft':
+            laws.applyGMultiplyLeft(action.j, action.i, action.count);
+            break;
+          case 'hUp':
+            laws.applyHMultiplyUp(action.j, action.i, action.count);
+            break;
+          case 'hDown':
+            laws.applyHMultiplyDown(action.j, action.i, action.count);
+            break;
+          case 'basisLaw':
+            laws.applySpecial(action.j, action.i, action.count);
+            break;
+          case 'reverseBasisLaw':
+            laws.applyReverseSpecial(action.j, action.i, action.count);
+            break;
+        }
+
+        return state;
+      }
+
+      // Get inverse of an action (for efficient undo of reversible actions)
+      getInverseAction(action) {
+        const inverseMap = {
+          'gRight': 'gLeft',
+          'gLeft': 'gRight',
+          'hUp': 'hDown',
+          'hDown': 'hUp',
+          'basisLaw': 'reverseBasisLaw',
+          'reverseBasisLaw': 'basisLaw'
+        };
+
+        if (action.type === 'checkpoint') {
+          return null; // Checkpoints don't have inverses
+        }
+
+        return {
+          ...action,
+          type: inverseMap[action.type]
+        };
       }
 
       clear() {
-        this.states = [];
+        this.actions = [];
         this.currentIndex = -1;
+      }
+
+      setInitialState(state) {
+        this.initialState = state ? state.clone() : null;
       }
     }
 
@@ -1437,10 +1535,19 @@
         const saved = this.getSavedBoards();
         saved[name] = {
           timestamp: Date.now(),
-          version: 1,
+          version: 2,  // Bump version for action-based format
           currentState: this.app.board.toJSON(),
           history: {
-            states: this.app.history.states.map(state => state.toJSON()),
+            initialState: this.app.history.initialState ? this.app.history.initialState.toJSON() : null,
+            actions: this.app.history.actions.map(action => {
+              if (action.type === 'checkpoint') {
+                return {
+                  ...action,
+                  state: action.state.toJSON()
+                };
+              }
+              return action;
+            }),
             currentIndex: this.app.history.currentIndex
           },
           initialBoard: this.app.initialBoard ? this.app.initialBoard.toJSON() : null
@@ -1466,17 +1573,28 @@
 
         const savedData = saved[name];
 
-        // Support both old format (state only) and new format (with history)
-        if (savedData.version === 1 && savedData.currentState) {
-          // New format with history
+        // Support version 2 (actions), version 1 (states), and old format
+        if (savedData.version === 2 && savedData.history && savedData.history.actions) {
+          // Version 2: Action-based history
           const board = BoardState.fromJSON(savedData.currentState);
           this.app.board = board;
           this.app.laws = new ConservationLaws(board);
           this.app.renderer.board = board;
 
-          // Restore history by directly assigning states array (same as importJSON)
+          // Restore action-based history
           this.app.history.clear();
-          this.app.history.states = savedData.history.states.map(state => BoardState.fromJSON(state));
+          if (savedData.history.initialState) {
+            this.app.history.initialState = BoardState.fromJSON(savedData.history.initialState);
+          }
+          this.app.history.actions = savedData.history.actions.map(action => {
+            if (action.type === 'checkpoint') {
+              return {
+                ...action,
+                state: BoardState.fromJSON(action.state)
+              };
+            }
+            return action;
+          });
           this.app.history.currentIndex = savedData.history.currentIndex;
 
           // Restore initial board
@@ -1485,14 +1603,23 @@
           } else {
             this.app.initialBoard = board.clone();
           }
+        } else if (savedData.version === 1 && savedData.currentState) {
+          // Version 1: State-based history (backward compatibility)
+          const board = BoardState.fromJSON(savedData.currentState);
+          this.app.board = board;
+          this.app.laws = new ConservationLaws(board);
+          this.app.renderer.board = board;
+          this.app.history.clear();
+          this.app.history.setInitialState(board);
+          this.app.initialBoard = savedData.initialBoard ? BoardState.fromJSON(savedData.initialBoard) : board.clone();
         } else {
-          // Old format (backward compatibility)
+          // Very old format (just state, no version)
           const board = BoardState.fromJSON(savedData.state);
           this.app.board = board;
           this.app.laws = new ConservationLaws(board);
           this.app.renderer.board = board;
           this.app.history.clear();
-          this.app.history.push(board);
+          this.app.history.setInitialState(board);
           this.app.initialBoard = board.clone();
         }
 
@@ -1505,12 +1632,21 @@
       }
 
       exportJSON() {
-        // Export current state plus full history
+        // Export current state plus full history (action-based)
         const exportData = {
-          version: 1,
+          version: 2,  // Bump version for action-based format
           currentState: this.app.board.toJSON(),
           history: {
-            states: this.app.history.states.map(state => state.toJSON()),
+            initialState: this.app.history.initialState ? this.app.history.initialState.toJSON() : null,
+            actions: this.app.history.actions.map(action => {
+              if (action.type === 'checkpoint') {
+                return {
+                  ...action,
+                  state: action.state.toJSON()
+                };
+              }
+              return action;
+            }),
             currentIndex: this.app.history.currentIndex
           },
           initialBoard: this.app.initialBoard ? this.app.initialBoard.toJSON() : null,
@@ -1538,17 +1674,28 @@
             try {
               const json = JSON.parse(e.target.result);
 
-              // Check if this is a new format (with version and history) or old format (just board state)
-              if (json.version === 1 && json.history) {
-                // New format with history
+              // Support version 2 (actions), version 1 (states), and old format
+              if (json.version === 2 && json.history && json.history.actions) {
+                // Version 2: Action-based history
                 const board = BoardState.fromJSON(json.currentState);
                 this.app.board = board;
                 this.app.laws = new ConservationLaws(board);
                 this.app.renderer.board = board;
 
-                // Restore history
+                // Restore action-based history
                 this.app.history.clear();
-                this.app.history.states = json.history.states.map(state => BoardState.fromJSON(state));
+                if (json.history.initialState) {
+                  this.app.history.initialState = BoardState.fromJSON(json.history.initialState);
+                }
+                this.app.history.actions = json.history.actions.map(action => {
+                  if (action.type === 'checkpoint') {
+                    return {
+                      ...action,
+                      state: BoardState.fromJSON(action.state)
+                    };
+                  }
+                  return action;
+                });
                 this.app.history.currentIndex = json.history.currentIndex;
 
                 // Restore initial board
@@ -1560,14 +1707,25 @@
 
                 this.app.render();
                 resolve(true);
+              } else if (json.version === 1 && json.history) {
+                // Version 1: State-based history (backward compatibility)
+                const board = BoardState.fromJSON(json.currentState);
+                this.app.board = board;
+                this.app.laws = new ConservationLaws(board);
+                this.app.renderer.board = board;
+                this.app.history.clear();
+                this.app.history.setInitialState(board);
+                this.app.initialBoard = json.initialBoard ? BoardState.fromJSON(json.initialBoard) : board.clone();
+                this.app.render();
+                resolve(true);
               } else {
-                // Old format (backward compatibility) - just board state
+                // Very old format - just board state
                 const board = BoardState.fromJSON(json);
                 this.app.board = board;
                 this.app.laws = new ConservationLaws(board);
                 this.app.renderer.board = board;
                 this.app.history.clear();
-                this.app.history.push(board);
+                this.app.history.setInitialState(board);
                 this.app.initialBoard = board.clone();
                 this.app.render();
                 resolve(true);
@@ -1615,7 +1773,7 @@
 
         this.initialBoard = this.board.clone();
         this.history.clear();
-        this.history.push(this.board);
+        this.history.setInitialState(this.board);
 
         this.selectedCell = null;
         this.render();
@@ -1665,14 +1823,45 @@
         }
       }
 
-      applyAction(actionFn, successMessage) {
+      applyAction(action) {
         // Calculate polynomial sum before action
         const sumBefore = this.board.calculatePolynomialSum();
 
         const newBoard = this.board.clone();
         const newLaws = new ConservationLaws(newBoard);
 
-        if (actionFn(newLaws)) {
+        // Apply the action based on its type
+        let success = false;
+        switch (action.type) {
+          case 'gRight':
+            success = newLaws.applyGMultiplyRight(action.j, action.i, action.count);
+            break;
+          case 'gLeft':
+            success = newLaws.applyGMultiplyLeft(action.j, action.i, action.count);
+            break;
+          case 'hUp':
+            success = newLaws.applyHMultiplyUp(action.j, action.i, action.count);
+            break;
+          case 'hDown':
+            success = newLaws.applyHMultiplyDown(action.j, action.i, action.count);
+            break;
+          case 'basisLaw':
+            success = newLaws.applySpecial(action.j, action.i, action.count);
+            break;
+          case 'reverseBasisLaw':
+            success = newLaws.applyReverseSpecial(action.j, action.i, action.count);
+            break;
+          case 'checkpoint':
+            // For checkpoints, just set the board to the stored state
+            this.board = action.state.clone();
+            this.laws = new ConservationLaws(this.board);
+            this.renderer.board = this.board;
+            this.history.recordAction(action);
+            this.render();
+            return true;
+        }
+
+        if (success) {
           // Calculate polynomial sum after action
           const sumAfter = newBoard.calculatePolynomialSum();
 
@@ -1690,7 +1879,9 @@
           this.board = newBoard;
           this.laws = newLaws;
           this.renderer.board = newBoard;
-          this.history.push(this.board);
+
+          // Record the action in history
+          this.history.recordAction(action);
 
           if (this.board.isZeroState()) {
             setTimeout(() => {
@@ -1706,9 +1897,51 @@
       }
 
       undo() {
-        const prevBoard = this.history.undo();
-        if (prevBoard) {
-          this.board = prevBoard;
+        const action = this.history.getUndoAction();
+        if (!action) return;
+
+        // Try to apply inverse action (efficient for reversible actions)
+        const inverseAction = this.history.getInverseAction(action);
+        if (inverseAction) {
+          // Apply inverse directly
+          const newBoard = this.board.clone();
+          const newLaws = new ConservationLaws(newBoard);
+
+          let success = false;
+          switch (inverseAction.type) {
+            case 'gRight':
+              success = newLaws.applyGMultiplyRight(inverseAction.j, inverseAction.i, inverseAction.count);
+              break;
+            case 'gLeft':
+              success = newLaws.applyGMultiplyLeft(inverseAction.j, inverseAction.i, inverseAction.count);
+              break;
+            case 'hUp':
+              success = newLaws.applyHMultiplyUp(inverseAction.j, inverseAction.i, inverseAction.count);
+              break;
+            case 'hDown':
+              success = newLaws.applyHMultiplyDown(inverseAction.j, inverseAction.i, inverseAction.count);
+              break;
+            case 'basisLaw':
+              success = newLaws.applySpecial(inverseAction.j, inverseAction.i, inverseAction.count);
+              break;
+            case 'reverseBasisLaw':
+              success = newLaws.applyReverseSpecial(inverseAction.j, inverseAction.i, inverseAction.count);
+              break;
+          }
+
+          if (success) {
+            this.board = newBoard;
+            this.laws = newLaws;
+            this.renderer.board = newBoard;
+            this.render();
+            return;
+          }
+        }
+
+        // Fallback: rebuild state from history (for checkpoints or if inverse failed)
+        const state = this.history.getCurrentState();
+        if (state) {
+          this.board = state;
           this.laws = new ConservationLaws(this.board);
           this.renderer.board = this.board;
           this.render();
@@ -1716,9 +1949,13 @@
       }
 
       redo() {
-        const nextBoard = this.history.redo();
-        if (nextBoard) {
-          this.board = nextBoard;
+        const action = this.history.getRedoAction();
+        if (!action) return;
+
+        // Rebuild state from history by replaying
+        const state = this.history.getCurrentState();
+        if (state) {
+          this.board = state;
           this.laws = new ConservationLaws(this.board);
           this.renderer.board = this.board;
           this.render();
@@ -1742,7 +1979,21 @@
       resetK() {
         // Reset k can be performed at any time
         // It initializes the board with the fundamental d(g,h) relationship
-        return this.applyAction(laws => laws.applyResetK());
+        // This is a destructive operation, so we create a checkpoint
+
+        // Create the new board state
+        const newBoard = this.board.clone();
+        const newLaws = new ConservationLaws(newBoard);
+        newLaws.applyResetK();
+
+        // Create a checkpoint action
+        const checkpointAction = {
+          type: 'checkpoint',
+          state: newBoard,
+          reason: 'resetK'
+        };
+
+        return this.applyAction(checkpointAction);
       }
 
       startAnimation() {
@@ -1751,12 +2002,9 @@
           return;
         }
 
-        // Go to start of history
-        while (this.history.canUndo()) {
-          this.history.undo();
-        }
-        const firstBoard = this.history.states[this.history.currentIndex];
-        this.board = firstBoard.clone();
+        // Go to start of history (initialState)
+        this.history.currentIndex = -1;
+        this.board = this.history.initialState.clone();
         this.laws = new ConservationLaws(this.board);
         this.renderer.board = this.board;
         this.render();
@@ -2124,7 +2372,7 @@
       updateControlPanel() {
         document.getElementById('undo-btn').disabled = !this.history.canUndo();
         document.getElementById('redo-btn').disabled = !this.history.canRedo();
-        document.getElementById('animate-btn').disabled = this.history.states.length <= 1;
+        document.getElementById('animate-btn').disabled = this.history.actions.length === 0;
 
         if (this.selectedCell) {
           const { j, i } = this.selectedCell;
@@ -2728,7 +2976,7 @@
         `Move how many pebbles to the right? (creates ${app.board.g} pebbles per pebble moved)`,
         count,
         (num) => {
-          const success = app.applyAction(laws => laws.applyGMultiplyRight(j, i, num));
+          const success = app.applyAction({type: 'gRight', j, i, count: num});
           if (success) {
             app.selectedCell = { j: j + 1, i: i };
             app.renderer.selectedCell = app.selectedCell;
@@ -2748,7 +2996,7 @@
 
       if (spreadMode && maxSets > 0) {
         // In spread mode, automatically use max without prompting
-        const success = app.applyAction(laws => laws.applyGMultiplyLeft(j - 1, i, maxSets));
+        const success = app.applyAction({type: 'gLeft', j: j - 1, i, count: maxSets});
         if (success) {
           app.selectedCell = { j: j - 1, i: i };
           app.renderer.selectedCell = app.selectedCell;
@@ -2770,7 +3018,7 @@
           `Combine how many sets of ${app.board.g} pebbles into 1? (max: ${maxSets})`,
           maxSets,
           (num) => {
-            const success = app.applyAction(laws => laws.applyGMultiplyLeft(j - 1, i, num));
+            const success = app.applyAction({type: 'gLeft', j: j - 1, i, count: num});
             if (success) {
               app.selectedCell = { j: j - 1, i: i };
               app.renderer.selectedCell = app.selectedCell;
@@ -2792,7 +3040,7 @@
         `Move how many pebbles down? (creates ${app.board.h} pebbles in square below)`,
         count,
         (num) => {
-          const success = app.applyAction(laws => laws.applyHMultiplyDown(j, i, num));
+          const success = app.applyAction({type: 'hDown', j, i, count: num});
           if (success) {
             app.selectedCell = { j: j, i: i - 1 };
             app.renderer.selectedCell = app.selectedCell;
@@ -2812,7 +3060,7 @@
 
       if (spreadMode && maxSets > 0) {
         // In spread mode, automatically use max without prompting
-        const success = app.applyAction(laws => laws.applyHMultiplyUp(j, i, maxSets));
+        const success = app.applyAction({type: 'hUp', j, i, count: maxSets});
         if (success) {
           app.selectedCell = { j: j, i: i + 1 };
           app.renderer.selectedCell = app.selectedCell;
@@ -2834,7 +3082,7 @@
           `Combine how many sets of ${app.board.h} pebbles into square above? (max: ${maxSets})`,
           maxSets,
           (num) => {
-            const success = app.applyAction(laws => laws.applyHMultiplyUp(j, i, num));
+            const success = app.applyAction({type: 'hUp', j, i, count: num});
             if (success) {
               app.selectedCell = { j: j, i: i + 1 };
               app.renderer.selectedCell = app.selectedCell;
@@ -2862,7 +3110,7 @@
         `Apply ${basisFormula}: Replaces pebble at (j=${j},i=${i}) with base-${app.board.h} expansion of (g+1) at column j+1, minus 1. How many pebbles?`,
         count,
         (num) => {
-          const success = app.applyAction(laws => laws.applySpecial(j, i, num));
+          const success = app.applyAction({type: 'basisLaw', j, i, count: num});
           if (success) {
             app.selectedCell = { j: j + 1, i: i + maxPower };
             app.renderer.selectedCell = app.selectedCell;
@@ -2888,7 +3136,7 @@
         `Apply inverse of ${basisFormula}: Uses h^${maxPower} = (g+1) - (lower powers). Splits pebble from (j=${j},i=${i}) into column j-1 at i-${maxPower}. How many pebbles?`,
         count,
         (num) => {
-          const success = app.applyAction(laws => laws.applyReverseSpecial(j, i, num));
+          const success = app.applyAction({type: 'reverseBasisLaw', j, i, count: num});
           if (success) {
             app.selectedCell = { j: j - 1, i: i - maxPower };
             app.renderer.selectedCell = app.selectedCell;
@@ -2954,7 +3202,7 @@
           const maxLeft = Math.floor(count / app.board.g);
           if (maxLeft > 0) {
             const numLeft = e.shiftKey ? maxLeft : 1;
-            const success = app.applyAction(laws => laws.applyGMultiplyLeft(j - 1, i, numLeft));
+            const success = app.applyAction({type: 'gLeft', j: j - 1, i, count: numLeft});
             if (success) {
               app.selectedCell = { j: j - 1, i: i };
               app.renderer.selectedCell = app.selectedCell;
@@ -2966,7 +3214,7 @@
         case 'r': // Right
           e.preventDefault();
           if (count > 0) {
-            const success = app.applyAction(laws => laws.applyGMultiplyRight(j, i, numPebbles));
+            const success = app.applyAction({type: 'gRight', j, i, count: numPebbles});
             if (success) {
               app.selectedCell = { j: j + 1, i: i };
               app.renderer.selectedCell = app.selectedCell;
@@ -2980,7 +3228,7 @@
           const maxUp = Math.floor(count / app.board.h);
           if (maxUp > 0) {
             const numUp = e.shiftKey ? maxUp : 1;
-            const success = app.applyAction(laws => laws.applyHMultiplyUp(j, i, numUp));
+            const success = app.applyAction({type: 'hUp', j, i, count: numUp});
             if (success) {
               app.selectedCell = { j: j, i: i + 1 };
               app.renderer.selectedCell = app.selectedCell;
@@ -2992,7 +3240,7 @@
         case 'd': // Down
           e.preventDefault();
           if (count > 0) {
-            const success = app.applyAction(laws => laws.applyHMultiplyDown(j, i, numPebbles));
+            const success = app.applyAction({type: 'hDown', j, i, count: numPebbles});
             if (success) {
               app.selectedCell = { j: j, i: i - 1 };
               app.renderer.selectedCell = app.selectedCell;
@@ -3007,7 +3255,7 @@
             const gPlus1 = app.board.g + 1;
             const digits = app.laws.toBaseH(gPlus1, app.board.h);
             const maxPower = digits.length - 1;
-            const success = app.applyAction(laws => laws.applySpecial(j, i, numPebbles));
+            const success = app.applyAction({type: 'basisLaw', j, i, count: numPebbles});
             if (success) {
               app.selectedCell = { j: j + 1, i: i + maxPower };
               app.renderer.selectedCell = app.selectedCell;
@@ -3022,7 +3270,7 @@
             const gPlus1 = app.board.g + 1;
             const digits = app.laws.toBaseH(gPlus1, app.board.h);
             const maxPower = digits.length - 1;
-            const success = app.applyAction(laws => laws.applyReverseSpecial(j, i, numPebbles));
+            const success = app.applyAction({type: 'reverseBasisLaw', j, i, count: numPebbles});
             if (success) {
               app.selectedCell = { j: j - 1, i: i - maxPower };
               app.renderer.selectedCell = app.selectedCell;
