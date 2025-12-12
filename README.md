@@ -105,6 +105,26 @@ All formats generate clickable links for easy sharing.
 
 Enable "Spread" mode to automatically repeat Left/Up operations until all multiples are reduced to singletons - useful for quickly simplifying board states.
 
+### Random Exploration
+
+The **Random (r)** button provides automatic exploration of the board state:
+
+- **Press 'r' or click the dice button** to start automatic random execution
+- Randomly selects cells and actions across the entire board
+- Executes conservation law operations at 500ms intervals
+- Auto-stops when no actions are available
+- **Press 'r' again** to stop at any time
+
+**Fun Ways to Use Random:**
+
+1. **Explore Example Cycles**: Load an example (like p=1093, g=5, h=2) and hit 'r' to watch it randomly navigate the board
+2. **Fresh Start Exploration**: Use "Reset k (v)" to start from a clean slate, then let Random discover interesting sequences
+3. **Lucky Discovery**: See if Random can stumble into the zero state by chance - proving the cycle!
+4. **Pattern Recognition**: Watch Random explore and observe which operations it tends to use more frequently
+5. **Checkpoint Navigation**: After using Reset k, watch how Random interacts with the checkpoint in the undo/redo history
+
+Random mode makes exploration playful and can reveal unexpected transformation sequences you might not have tried manually.
+
 ## How It Works
 
 ### Parameter Derivation
