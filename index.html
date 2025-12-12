@@ -239,9 +239,16 @@
       font-size: 13px;
     }
 
+    #validation-message {
+      min-height: 50px;
+      margin: 10px 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
     .success-message {
       color: #059669;
-      margin-top: 10px;
       padding: 10px;
       background: #d1fae5;
       border-radius: 4px;
@@ -458,7 +465,6 @@
           <a href="?p=585&g=8&h=3">p=585</a>
         </div>
       </div>
-      <div id="validation-message"></div>
     </div>
 
     <div class="canvas-container" id="board-container">
@@ -468,6 +474,8 @@
     <div class="selected-info" id="selected-info">
       No cell selected. Click a cell on the board to select it.
     </div>
+
+    <div id="validation-message"></div>
 
     <div class="panel">
       <h2>Cycle Controls</h2>
