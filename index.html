@@ -1574,7 +1574,7 @@
           }
 
           // Place -x₀ term at the end: -x₀·h^e at position (o-1, e)
-          this.board.set(this.board.o - 1, this.board.e, -this.board.x0);
+          this.board.set(this.board.o - 1, this.board.e, -this.board.x0+this.board.get(this.board.o-1, this.board.e));
 
         } catch (err) {
           console.error('Error generating initial state:', err);
