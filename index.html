@@ -2758,8 +2758,13 @@
           return a.type.localeCompare(b.type);  // Alphabetical
         });
 
-        // Select from top N candidates with equal probability (1/N each) to escape local minima
-        const topN = Math.min(10, candidateActions.length);
+        // Sample N using inverse uniform distribution: u ~ U(0,1), N = 2^ceil(log2(1/u))
+        // This creates variable-sized candidate pool with logarithmic distribution
+        // Heavily favors small N (exploitation) but occasionally allows larger N (exploration)
+        const u = Math.max(Math.random(), 1e-6);  // Avoid division by zero
+        const inverse = 1 / u;
+        const nextPowerOf2 = Math.pow(2, Math.ceil(Math.log2(inverse)));
+        const topN = Math.min(nextPowerOf2, candidateActions.length);
         const topCandidates = candidateActions.slice(0, topN);
         const bestAction = topCandidates[Math.floor(Math.random() * topCandidates.length)];
 
