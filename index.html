@@ -2750,7 +2750,8 @@
           return;
         }
 
-        const popup = window.open('', 'Action Statistics', 'width=800,height=450,resizable=yes,scrollbars=yes');
+        const features = 'width=800,height=450,left=100,top=100,resizable=yes,scrollbars=yes,toolbar=no,menubar=no,location=no,status=no';
+        const popup = window.open('', 'ActionStats_' + Date.now(), features);
         this.statsPopup = popup;
 
         popup.document.write(`
@@ -2791,7 +2792,8 @@
           return;
         }
 
-        const popup = window.open('', 'Entropy & Force Analysis', 'width=800,height=450,resizable=yes,scrollbars=yes');
+        const features = 'width=800,height=450,left=100,top=100,resizable=yes,scrollbars=yes,toolbar=no,menubar=no,location=no,status=no';
+        const popup = window.open('', 'EntropyForce_' + Date.now(), features);
         this.entropyPopup = popup;
 
         popup.document.write(`
