@@ -42,6 +42,8 @@ Fast, prompt-free operation with keyboard shortcuts:
 
 - **l/r/u/d/f/b**: Apply operations with 1 pebble
 - **Shift + key**: Apply operations with maximum available pebbles
+- **v**: Reset k (clear board to initial state)
+- **m**: Start/stop Local Minimiser mode
 - **Ctrl/Cmd + Z**: Undo
 - **Ctrl/Cmd + Shift + Z** or **Ctrl/Cmd + Y**: Redo
 
@@ -141,6 +143,33 @@ The **Random (r)** button provides automatic exploration of the board state:
 5. **Checkpoint Navigation**: After using Reset k, watch how Random interacts with the checkpoint in the undo/redo history
 
 Random mode makes exploration playful and can reveal unexpected transformation sequences you might not have tried manually.
+
+### Local Minimiser
+
+The **Local Minimiser (m)** button provides greedy entropy-reduction exploration:
+
+- **Press 'm' or click the 📉 Local Minimiser button** to start automatic local minimization
+- At each step, evaluates ALL possible actions and their effect on board entropy
+- Selects randomly from the top 10 entropy-reducing actions (with equal probability 1/10 each)
+- Executes conservation law operations at 500ms intervals
+- Auto-stops when no actions are available
+- **Press 'm' again** to stop at any time
+
+**Why "Local" Minimiser?**
+
+This algorithm makes **locally optimal** choices but may miss **globally better** strategies. For example:
+- Moving black pebbles closer to white pebbles might not reduce entropy immediately
+- But it sets up future cancellations that would result in much greater entropy reduction overall
+- The greedy algorithm can't see these multi-step opportunities, hence "local" minimization
+
+The stochastic top-10 sampling helps escape local minima while still maintaining a strong bias toward entropy reduction.
+
+**When to Use Local Minimiser:**
+
+1. **Quick Simplification**: Watch it rapidly reduce board complexity through greedy choices
+2. **Entropy Monitoring**: Observe how the entropy graph responds to systematic reduction
+3. **Compare with Random**: See how directed (but local) optimization differs from random exploration
+4. **Learn Patterns**: Identify which operations most effectively reduce entropy in different configurations
 
 ## How It Works
 
