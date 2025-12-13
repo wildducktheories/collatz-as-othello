@@ -531,6 +531,7 @@
         <div class="law-row">
           <button class="btn-primary" id="reset-k-btn">Reset k (v)</button>
           <button class="btn-primary" id="random-btn">🎲 Random (r)</button>
+          <button class="btn-primary" id="maximiser-btn">📉 Maximiser (m)</button>
         </div>
       </div>
       <div style="font-size: 12px; margin-top: 8px; color: #666; line-height: 1.6;">
@@ -2509,6 +2510,7 @@
       reset() {
         this.stopAnimation();
         this.stopRandomExecution();
+        this.stopMaximiserExecution();
         if (this.initialBoard) {
           this.board = this.initialBoard.clone();
           this.laws = new ConservationLaws(this.board);
@@ -2662,11 +2664,127 @@
         return success;
       }
 
+      performMaximiserAction() {
+        // Get current entropy
+        const currentEntropy = this.board.calculateEntropy();
+
+        // Find all possible actions and evaluate their entropy loss
+        const candidateActions = [];
+
+        for (let j = this.board.minCol; j <= this.board.maxCol; j++) {
+          for (let i = this.board.minRow; i <= this.board.maxRow; i++) {
+            const count = Math.abs(this.board.get(j, i));
+            if (count === 0) continue;
+
+            // List of all possible action types (in alphabetical order for tie-breaking)
+            const actionTypes = [
+              { name: 'basisLaw', canApply: () => this.laws.canApplySpecial(j, i) },
+              { name: 'gLeft', canApply: () => j > this.board.minCol && this.laws.canApplyGMultiplyLeft(j - 1, i) },
+              { name: 'gRight', canApply: () => this.laws.canApplyGMultiplyRight(j, i) },
+              { name: 'hDown', canApply: () => this.laws.canApplyHMultiplyDown(j, i) },
+              { name: 'hUp', canApply: () => this.laws.canApplyHMultiplyUp(j, i) },
+              { name: 'reverseBasisLaw', canApply: () => this.laws.canApplyReverseSpecial(j, i) }
+            ];
+
+            for (const actionType of actionTypes) {
+              if (!actionType.canApply()) continue;
+
+              // Clone board and test the action
+              const testBoard = this.board.clone();
+              const testLaws = new ConservationLaws(testBoard);
+
+              let actionJ = j;
+              let actionI = i;
+              let moveCell = { j, i };
+
+              // Apply the action with count=1
+              let success = false;
+              if (actionType.name === 'gRight') {
+                success = testLaws.applyGMultiplyRight(j, i, 1);
+                moveCell = { j: j + 1, i };
+              } else if (actionType.name === 'gLeft') {
+                actionJ = j - 1;
+                success = testLaws.applyGMultiplyLeft(j - 1, i, 1);
+                moveCell = { j: j - 1, i };
+              } else if (actionType.name === 'hUp') {
+                success = testLaws.applyHMultiplyUp(j, i, 1);
+                moveCell = { j, i: i + 1 };
+              } else if (actionType.name === 'hDown') {
+                success = testLaws.applyHMultiplyDown(j, i, 1);
+                moveCell = { j, i: i - 1 };
+              } else if (actionType.name === 'basisLaw') {
+                success = testLaws.applySpecial(j, i, 1);
+              } else if (actionType.name === 'reverseBasisLaw') {
+                success = testLaws.applyReverseSpecial(j, i, 1);
+              }
+
+              if (success) {
+                const newEntropy = testBoard.calculateEntropy();
+                const entropyLoss = currentEntropy - newEntropy;
+
+                candidateActions.push({
+                  type: actionType.name,
+                  j: actionJ,
+                  i: actionI,
+                  entropyLoss,
+                  originalJ: j,  // For tie-breaking
+                  originalI: i,  // For tie-breaking
+                  moveCell
+                });
+              }
+            }
+          }
+        }
+
+        if (candidateActions.length === 0) {
+          this.stopMaximiserExecution();
+          return false;
+        }
+
+        // Sort by: max entropy loss, then lowest j, then lowest i, then alphabetical action name
+        candidateActions.sort((a, b) => {
+          if (a.entropyLoss !== b.entropyLoss) {
+            return b.entropyLoss - a.entropyLoss;  // Descending (max first)
+          }
+          if (a.originalJ !== b.originalJ) {
+            return a.originalJ - b.originalJ;  // Ascending (lowest first)
+          }
+          if (a.originalI !== b.originalI) {
+            return a.originalI - b.originalI;  // Ascending (lowest first)
+          }
+          return a.type.localeCompare(b.type);  // Alphabetical
+        });
+
+        // Take the best action
+        const bestAction = candidateActions[0];
+
+        // Execute the action
+        const action = {
+          type: bestAction.type,
+          j: bestAction.j,
+          i: bestAction.i,
+          count: 1  // Always use 1 for maximiser mode
+        };
+
+        const success = this.applyAction(action);
+
+        // Update selected cell
+        if (success) {
+          this.selectedCell = bestAction.moveCell;
+          this.renderer.selectedCell = this.selectedCell;
+        }
+
+        return success;
+      }
+
       startRandomExecution() {
         if (this.randomInterval) {
           this.stopRandomExecution();
           return;
         }
+
+        // Stop maximiser if running (mutually exclusive)
+        this.stopMaximiserExecution();
 
         // Update button text
         document.getElementById('random-btn').textContent = '⏸ Stop Random';
@@ -2690,14 +2808,46 @@
         }
       }
 
+      startMaximiserExecution() {
+        if (this.maximiserInterval) {
+          this.stopMaximiserExecution();
+          return;
+        }
+
+        // Stop random if running (mutually exclusive)
+        this.stopRandomExecution();
+
+        // Update button text
+        document.getElementById('maximiser-btn').textContent = '⏸ Stop Maximiser';
+
+        // Perform first action immediately
+        this.performMaximiserAction();
+
+        // Start interval
+        this.maximiserInterval = setInterval(() => {
+          if (!this.performMaximiserAction()) {
+            this.stopMaximiserExecution();
+          }
+        }, this.randomDelay);  // Use same delay as random
+      }
+
+      stopMaximiserExecution() {
+        if (this.maximiserInterval) {
+          clearInterval(this.maximiserInterval);
+          this.maximiserInterval = null;
+          document.getElementById('maximiser-btn').textContent = '📉 Maximiser (m)';
+        }
+      }
+
       startAnimation() {
         if (this.animationInterval) {
           this.stopAnimation();
           return;
         }
 
-        // Stop random execution if running
+        // Stop random and maximiser execution if running
         this.stopRandomExecution();
+        this.stopMaximiserExecution();
 
         // Go to start of history (initialState)
         this.history.currentIndex = -1;
@@ -4056,6 +4206,10 @@
       app.startRandomExecution();
     });
 
+    document.getElementById('maximiser-btn').addEventListener('click', () => {
+      app.startMaximiserExecution();
+    });
+
     // Persistence buttons
     document.getElementById('copy-url-btn').addEventListener('click', () => persistence.copyURL());
     document.getElementById('save-local-btn').addEventListener('click', () => persistence.saveToLocalStorage());
@@ -4093,6 +4247,19 @@
           app.redo();
         }
         return;
+      }
+
+      // Global shortcuts (don't require selected cell)
+      switch(e.key.toLowerCase()) {
+        case 'v': // Reset k
+          e.preventDefault();
+          app.resetK();
+          return;
+
+        case 'm': // Maximiser
+          e.preventDefault();
+          app.startMaximiserExecution();
+          return;
       }
 
       // Conservation law shortcuts (l, r, u, d, f, b)
@@ -4183,16 +4350,6 @@
               app.render();
             }
           }
-          break;
-
-        case 'v': // Reset k
-          e.preventDefault();
-          app.resetK();
-          break;
-
-        case 'r': // Random action
-          e.preventDefault();
-          app.startRandomExecution();
           break;
       }
     });
