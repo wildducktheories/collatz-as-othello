@@ -529,7 +529,7 @@
           <button class="btn-primary" id="reverse-special-btn" disabled>Reverse Basis Law (b)</button>
         </div>
         <div class="law-row">
-          <button class="btn-primary" id="reset-k-btn">Reset k (v)</button>
+          <button class="btn-primary" id="reset-k-btn" title="Clear board to show only x₀·d(g,h) part. Use 'q' shortcut to reconstruct q·k(g,h) part of the identity q·k(g,h) - x₀·d(g,h) = 0">Reset q·k (v)</button>
           <button class="btn-primary" id="random-btn">🎲 Random (r)</button>
           <button class="btn-primary" id="local-minimiser-btn">📉 Local Minimiser (m)</button>
         </div>
@@ -1512,14 +1512,15 @@
       }
 
       canResetK() {
-        // Reset k can be performed at any time
+        // Reset q·k can be performed at any time
         return true;
       }
 
       applyResetK() {
-        // Reset k initializes the board to show the fundamental relationship:
-        // x₀·g^o - x₀·h^e + x₀·d = 0, where d = h^e - g^o
-        // This satisfies force conservation and can be done at any time
+        // Reset q·k clears the board to show only the x₀·d(g,h) part of the identity:
+        // q·k(g,h) - x₀·d(g,h) = 0
+        // Board shows: x₀·g^o - x₀·h^e (which equals -x₀·d where d = h^e - g^o)
+        // User can then reconstruct the q·k(g,h) part using operations (esp. 'q' shortcut)
 
         const o = this.board.o;
         const e = this.board.e;
@@ -2526,8 +2527,8 @@
       }
 
       resetK() {
-        // Reset k can be performed at any time
-        // It initializes the board with the fundamental d(g,h) relationship
+        // Reset q·k clears the board to show only x₀·d(g,h) part
+        // This allows user to reconstruct q·k(g,h) to complete the identity
         // This is a destructive operation, so we create a checkpoint
 
         // Create the new board state
@@ -3442,7 +3443,7 @@
           document.getElementById('h-up-btn').disabled = !this.laws.canApplyHMultiplyUp(j, i);
           document.getElementById('special-btn').disabled = !this.laws.canApplySpecial(j, i);
           document.getElementById('reverse-special-btn').disabled = !this.laws.canApplyReverseSpecial(j, i);
-          // Reset k and Random are always available
+          // Reset q·k, Random, and Local Minimiser are always available
         } else {
           document.getElementById('selected-info').textContent = 'No cell selected. Click a cell on the board to select it.';
           document.getElementById('g-right-btn').disabled = true;
@@ -3451,7 +3452,7 @@
           document.getElementById('h-up-btn').disabled = true;
           document.getElementById('special-btn').disabled = true;
           document.getElementById('reverse-special-btn').disabled = true;
-          // Reset k and Random are always available
+          // Reset q·k, Random, and Local Minimiser are always available
         }
       }
 
@@ -4255,7 +4256,7 @@
 
       // Global shortcuts (don't require selected cell)
       switch(e.key.toLowerCase()) {
-        case 'v': // Reset k
+        case 'v': // Reset q·k (clear board to x₀·d part)
           e.preventDefault();
           app.resetK();
           return;
