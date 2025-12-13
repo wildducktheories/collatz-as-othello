@@ -595,6 +595,12 @@
         <div class="polynomial-display" id="basis-law-display" style="font-size: 14px;">
         </div>
       </div>
+
+      <div style="margin-top: 15px;">
+        <div id="force-heading" style="margin-bottom: 15px; font-size: 16px; color: #555;">Force Balance Equation:</div>
+        <div class="polynomial-display" id="force-display" style="font-size: 14px;">
+        </div>
+      </div>
     </div>
 
     <div class="persistence-panel panel">
@@ -2035,7 +2041,7 @@
 
         this.labels = {
           'entropy': 'Board Entropy',
-          'whiteForce': 'White Pebble Force'
+          'whiteForce': 'Balanced Force'
         };
       }
 
@@ -2153,7 +2159,7 @@
           ctx.stroke();
         }
 
-        // Draw right y-axis labels (White Force)
+        // Draw right y-axis labels (Balanced Force)
         ctx.fillStyle = this.colors.whiteForce;
         ctx.textAlign = 'left';
         for (let i = 0; i <= ySteps; i++) {
@@ -2177,13 +2183,13 @@
         ctx.fillText('Entropy', 0, 0);
         ctx.restore();
 
-        // Draw right y-axis label (White Force)
+        // Draw right y-axis label (Balanced Force)
         ctx.save();
         ctx.fillStyle = this.colors.whiteForce;
         ctx.translate(this.width - 15, this.height / 2);
         ctx.rotate(Math.PI / 2);
         ctx.textAlign = 'center';
-        ctx.fillText('White Force', 0, 0);
+        ctx.fillText('Balanced Force', 0, 0);
         ctx.restore();
 
         // Helper functions to map data to canvas coordinates
@@ -2765,6 +2771,9 @@
         // Render basis law
         this.renderBasisLaw();
 
+        // Render force balance equation
+        this.renderForceBalance();
+
         // Render force conservation formulas
         this.renderForceConservation();
 
@@ -2924,6 +2933,69 @@
           }
         } else {
           sectionElement.style.display = 'none';
+        }
+      }
+
+      renderForceBalance() {
+        if (!this.board) return;
+
+        const terms = this.board.getPolynomial();
+        const whiteTerms = []; // Positive coefficients (white pebbles)
+        const blackTerms = []; // Negative coefficients (black pebbles)
+
+        // Separate terms by sign
+        for (const term of terms) {
+          if (term.coeff > 0) {
+            whiteTerms.push(term);
+          } else if (term.coeff < 0) {
+            blackTerms.push(term);
+          }
+        }
+
+        // Format white side (LHS)
+        const formatSide = (terms) => {
+          if (terms.length === 0) return '0';
+
+          return terms.map((term, idx) => {
+            const absCoeff = Math.abs(term.coeff);
+            const sign = idx === 0 ? '' : ' + ';
+            let str = sign;
+
+            // Add coefficient if not 1, or if there are no powers
+            if (absCoeff !== 1 || (term.gPower === 0 && term.hPower === 0)) {
+              str += absCoeff.toString();
+            }
+
+            // Add g term
+            if (term.gPower > 0) {
+              str += 'g';
+              if (term.gPower > 1) str += '^{' + term.gPower + '}';
+            }
+
+            // Add h term
+            if (term.hPower > 0) {
+              str += 'h';
+              if (term.hPower > 1) str += '^{' + term.hPower + '}';
+            }
+
+            return str;
+          }).join('');
+        };
+
+        const whiteSide = formatSide(whiteTerms);
+        const blackSide = formatSide(blackTerms);
+
+        const latexStr = whiteSide + ' = ' + blackSide;
+
+        const displayElement = document.getElementById('force-display');
+        try {
+          katex.render(latexStr, displayElement, {
+            throwOnError: false,
+            displayMode: true
+          });
+        } catch (e) {
+          console.error('Error rendering force balance:', e);
+          displayElement.textContent = latexStr.replace(/\^{(\d+)}/g, '^$1');
         }
       }
 
