@@ -1192,7 +1192,7 @@
       }
 
       canApplyGMultiplyLeft(j, i) {
-        if (j >= this.board.maxCol) return false;
+        if (j < this.board.minCol) return false;
         const count = this.board.get(j + 1, i);
         return Math.abs(count) >= this.board.g;
       }
