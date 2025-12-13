@@ -58,16 +58,33 @@ All formats generate clickable links for easy sharing.
 ### Mathematical Features
 
 - **Polynomial Display**: LaTeX-rendered equations showing k(g,h) and d(g,h)
+- **Force Balance Equation**: Shows white terms (positive coefficients) on LHS equal to black terms (negative coefficients) on RHS, demonstrating the equilibrium of opposing forces
 - **X-Cycle Navigation**: Browse through related cycle elements
 - **P-Cycle Display**: Shows all p-values in the current cycle
 - **Conservation Assertion**: Validates polynomial sum preservation (Σ c_{j,i}·g^(o-1-j)·h^i) after every operation
+
+### Analysis & Visualization
+
+- **Action Statistics Graph**: Real-time timeseries visualization showing cumulative count of each conservation law operation:
+  - Color-coded lines for each action type (gRight, gLeft, hUp, hDown, basisLaw, reverseBasisLaw)
+  - Total action count overlay
+  - Interactive legend with current counts
+  - Updates during undo/redo and animation
+  - Helps identify which operations are used most frequently
+
+- **Entropy & Force Analysis Graph**: Dual-metric timeseries showing board evolution:
+  - **Board Entropy** (purple line): Measures complexity using formula `log₂(|c_{j,i}| + 1) + (1 if occupied else 0) + i + (o-1-j)·log₂(3)` summed over all occupied cells
+  - **Balanced Force** (green line): Sum of forces experienced by white pebbles `Σ c_{j,i}·g^(o-1-j)·h^i` (for c_{j,i} > 0), indicating magnitude of balanced forces
+  - Dual y-axes with independent scaling
+  - Shows how board complexity and force balance change during exploration
+  - Scientific notation for large force values
 
 ### Persistence & Debugging
 
 - **URL Sharing**: Encode complete board state in URL parameters
 - **Local Storage**: Save and load named configurations
 - **JSON Export/Import**: Download/upload board configurations with full undo/redo history
-- **History Replay**: Export includes complete session history for debugging
+- **History Replay**: Export includes complete session history for debugging (action-based storage supports up to 10,000 actions)
 - **Animation**: Step-by-step playback of history at 500ms intervals
 - **Anchor Parameter**: Maintain stable p-cycle ordering when navigating
 
