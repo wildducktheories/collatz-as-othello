@@ -2755,8 +2755,10 @@
           return a.type.localeCompare(b.type);  // Alphabetical
         });
 
-        // Take the best action
-        const bestAction = candidateActions[0];
+        // Select from top N candidates with equal probability (1/N each) to escape local minima
+        const topN = Math.min(10, candidateActions.length);
+        const topCandidates = candidateActions.slice(0, topN);
+        const bestAction = topCandidates[Math.floor(Math.random() * topCandidates.length)];
 
         // Execute the action
         const action = {
