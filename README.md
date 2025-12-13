@@ -171,6 +171,21 @@ The stochastic top-10 sampling helps escape local minima while still maintaining
 3. **Compare with Random**: See how directed (but local) optimization differs from random exploration
 4. **Learn Patterns**: Identify which operations most effectively reduce entropy in different configurations
 
+**The Irony of Local Optimization:**
+
+Empirical observation reveals a surprising result: the **Random strategy often outperforms the Local Minimiser** in finding solutions efficiently. This counterintuitive finding demonstrates a fundamental lesson in optimization:
+
+- **Greedy local choices can trap you**: The Local Minimiser gets stuck in local minima even with top-10 sampling
+- **Random exploration explores more broadly**: Random mode stumbles into diverse configurations, some leading to globally better outcomes
+- **The entropy landscape has many dead ends**: Locally optimal moves often lead to configurations with no path forward
+
+This is analogous to well-known phenomena in optimization theory:
+- Simulated annealing outperforms greedy hill climbing
+- Random search can beat gradient descent in high-dimensional spaces
+- Evolutionary algorithms use randomness to escape local optima
+
+**Lesson:** When the search space has complex structure with many local minima, apparently "inefficient" random exploration can be more effective than "intelligent" greedy optimization. The Local Minimiser is useful for understanding entropy reduction patterns, but Random mode may actually find solutions faster.
+
 ## How It Works
 
 ### Parameter Derivation
