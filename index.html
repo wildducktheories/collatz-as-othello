@@ -4356,20 +4356,16 @@
           }
           break;
 
-        case 'q': // Quick split: leave q pebbles, move rest right
+        case 'q': // Leave q pebbles (cycle parameter), move rest right
           e.preventDefault();
-          if (count > 1) {
-            const q = parseInt(prompt(`Leave how many pebbles in current cell (${j}, ${i})?\nCurrent count: ${count}`, '1'));
-            if (q && q >= 1 && q < count) {
-              const toMove = count - q;
-              const success = app.applyAction({type: 'gRight', j, i, count: toMove});
-              if (success) {
-                app.selectedCell = { j: j + 1, i: i };
-                app.renderer.selectedCell = app.selectedCell;
-                app.render();
-              }
-            } else if (q !== null) {
-              alert(`Invalid input. Must leave between 1 and ${count - 1} pebbles.`);
+          const q = app.board.q;
+          if (count > q && q >= 1) {
+            const toMove = count - q;
+            const success = app.applyAction({type: 'gRight', j, i, count: toMove});
+            if (success) {
+              app.selectedCell = { j: j + 1, i: i };
+              app.renderer.selectedCell = app.selectedCell;
+              app.render();
             }
           }
           break;
