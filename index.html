@@ -531,7 +531,7 @@
         <div class="law-row">
           <button class="btn-primary" id="reset-k-btn">Reset k (v)</button>
           <button class="btn-primary" id="random-btn">🎲 Random (r)</button>
-          <button class="btn-primary" id="maximiser-btn">📉 Maximiser (m)</button>
+          <button class="btn-primary" id="local-minimiser-btn">📉 Local Minimiser (m)</button>
         </div>
       </div>
       <div style="font-size: 12px; margin-top: 8px; color: #666; line-height: 1.6;">
@@ -2512,7 +2512,7 @@
       reset() {
         this.stopAnimation();
         this.stopRandomExecution();
-        this.stopMaximiserExecution();
+        this.stopLocalMinimiserExecution();
         if (this.initialBoard) {
           this.board = this.initialBoard.clone();
           this.laws = new ConservationLaws(this.board);
@@ -2666,7 +2666,7 @@
         return success;
       }
 
-      performMaximiserAction() {
+      performLocalMinimiserAction() {
         // Get current entropy
         const currentEntropy = this.board.calculateEntropy();
 
@@ -2739,7 +2739,7 @@
         }
 
         if (candidateActions.length === 0) {
-          this.stopMaximiserExecution();
+          this.stopLocalMinimiserExecution();
           return false;
         }
 
@@ -2767,7 +2767,7 @@
           type: bestAction.type,
           j: bestAction.j,
           i: bestAction.i,
-          count: 1  // Always use 1 for maximiser mode
+          count: 1  // Always use 1 for local minimiser mode
         };
 
         const success = this.applyAction(action);
@@ -2787,8 +2787,8 @@
           return;
         }
 
-        // Stop maximiser if running (mutually exclusive)
-        this.stopMaximiserExecution();
+        // Stop local minimiser if running (mutually exclusive)
+        this.stopLocalMinimiserExecution();
 
         // Update button text
         document.getElementById('random-btn').textContent = '⏸ Stop Random';
@@ -2812,9 +2812,9 @@
         }
       }
 
-      startMaximiserExecution() {
-        if (this.maximiserInterval) {
-          this.stopMaximiserExecution();
+      startLocalMinimiserExecution() {
+        if (this.localMinimiserInterval) {
+          this.stopLocalMinimiserExecution();
           return;
         }
 
@@ -2822,24 +2822,24 @@
         this.stopRandomExecution();
 
         // Update button text
-        document.getElementById('maximiser-btn').textContent = '⏸ Stop Maximiser';
+        document.getElementById('local-minimiser-btn').textContent = '⏸ Stop Local Minimiser';
 
         // Perform first action immediately
-        this.performMaximiserAction();
+        this.performLocalMinimiserAction();
 
         // Start interval
-        this.maximiserInterval = setInterval(() => {
-          if (!this.performMaximiserAction()) {
-            this.stopMaximiserExecution();
+        this.localMinimiserInterval = setInterval(() => {
+          if (!this.performLocalMinimiserAction()) {
+            this.stopLocalMinimiserExecution();
           }
         }, this.randomDelay);  // Use same delay as random
       }
 
-      stopMaximiserExecution() {
-        if (this.maximiserInterval) {
-          clearInterval(this.maximiserInterval);
-          this.maximiserInterval = null;
-          document.getElementById('maximiser-btn').textContent = '📉 Maximiser (m)';
+      stopLocalMinimiserExecution() {
+        if (this.localMinimiserInterval) {
+          clearInterval(this.localMinimiserInterval);
+          this.localMinimiserInterval = null;
+          document.getElementById('local-minimiser-btn').textContent = '📉 Local Minimiser (m)';
         }
       }
 
@@ -2849,9 +2849,9 @@
           return;
         }
 
-        // Stop random and maximiser execution if running
+        // Stop random and local minimiser execution if running
         this.stopRandomExecution();
-        this.stopMaximiserExecution();
+        this.stopLocalMinimiserExecution();
 
         // Go to start of history (initialState)
         this.history.currentIndex = -1;
@@ -4210,8 +4210,8 @@
       app.startRandomExecution();
     });
 
-    document.getElementById('maximiser-btn').addEventListener('click', () => {
-      app.startMaximiserExecution();
+    document.getElementById('local-minimiser-btn').addEventListener('click', () => {
+      app.startLocalMinimiserExecution();
     });
 
     // Persistence buttons
@@ -4260,9 +4260,9 @@
           app.resetK();
           return;
 
-        case 'm': // Maximiser
+        case 'm': // Local Minimiser
           e.preventDefault();
-          app.startMaximiserExecution();
+          app.startLocalMinimiserExecution();
           return;
       }
 
