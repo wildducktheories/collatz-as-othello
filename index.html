@@ -705,8 +705,10 @@
       }
 
       calculateEntropy() {
-        // Entropy formula: log_2(|c_{j,i}| + 1) + (1 if |c_{j,i}| > 0 else 0) + i + (o-1-j)*log_2(3)
+        // Entropy formula: log_2(|c_{j,i}| + 1) + (1 if |c_{j,i}| > 0 else 0) + i + (o-1-j)*log_h(g)
         let totalEntropy = 0;
+        const logHofG = Math.log(this.g) / Math.log(this.h);  // log_h(g) using change of base
+
         for (const [key, count] of this.grid.entries()) {
           const [j, i] = key.split(',').map(Number);
           const absCount = Math.abs(count);
@@ -714,7 +716,7 @@
           const entropy = Math.log2(absCount + 1) +
                          (absCount > 0 ? 1 : 0) +
                          i +
-                         (this.o - 1 - j) * Math.log2(3);
+                         (this.o - 1 - j) * logHofG;
 
           totalEntropy += entropy;
         }
