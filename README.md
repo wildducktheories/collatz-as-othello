@@ -42,7 +42,8 @@ Fast, prompt-free operation with keyboard shortcuts:
 
 - **l/r/u/d/f/b**: Apply operations with 1 pebble
 - **Shift + key**: Apply operations with maximum available pebbles
-- **v**: Reset k (clear board to initial state)
+- **q**: Leave q pebbles (cycle parameter), move rest right - useful for reconstructing q·k(g,h)
+- **v**: Reset q·k (clear board to x₀·d part) - allows reconstruction of the q·k(g,h) part of the identity
 - **m**: Start/stop Local Minimiser mode
 - **Ctrl/Cmd + Z**: Undo
 - **Ctrl/Cmd + Shift + Z** or **Ctrl/Cmd + Y**: Redo
@@ -123,6 +124,40 @@ All formats generate clickable links for easy sharing.
 ### Spread Mode
 
 Enable "Spread" mode to automatically repeat Left/Up operations until all multiples are reduced to singletons - useful for quickly simplifying board states.
+
+### Reset q·k and Reconstruction Workflow
+
+The **Reset q·k (v)** button provides a powerful workflow for understanding the polynomial identity:
+
+**The Identity:** q·k(g,h) - x₀·d(g,h) = 0
+
+Where:
+- **q·k(g,h)**: The "white terms" polynomial (positive coefficients)
+- **x₀·d(g,h)**: The "black terms" polynomial (negative coefficients)
+- **d(g,h) = h^e - g^o**: The difference polynomial
+
+**How Reset q·k Works:**
+
+1. **Press 'v' or click "Reset q·k"** - clears the board to show only the x₀·d(g,h) part:
+   - Shows x₀ white pebbles at position (-1, 0) representing x₀·g^o
+   - Shows x₀ black pebbles at position (o-1, e) representing -x₀·h^e
+   - This is the "-x₀·d(g,h)" part of the identity
+
+2. **Use conservation laws to reconstruct q·k(g,h)** - build up the white polynomial part:
+   - The **'q' shortcut** is particularly useful: leaves q pebbles, moves (c-q) right
+   - Apply other operations (l/r/u/d/f/b) to build the polynomial structure
+   - Goal: reach a state where all pebbles cancel (empty board = zero state)
+
+3. **Reaching zero proves the cycle** - when you successfully cancel all pebbles:
+   - You've demonstrated that q·k(g,h) = x₀·d(g,h)
+   - This confirms the polynomial identity holds
+   - This proves the existence of the cycle
+
+**Example Workflow:**
+- Load p=1093, g=5, h=2 (the 17 cycle with q=1)
+- Press 'v' to reset → shows 17 white at (-1,0) and 17 black at (2,7)
+- Use 'q' and other operations to build up the k(g,h) polynomial
+- Successfully reaching zero state proves the identity
 
 ### Random Exploration
 
