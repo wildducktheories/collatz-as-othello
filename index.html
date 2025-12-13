@@ -557,14 +557,20 @@
     </div>
 
     <div class="panel">
-      <h2>Action Statistics</h2>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <h2 style="margin: 0;">Action Statistics</h2>
+        <button class="btn-secondary" id="popout-stats-btn" style="font-size: 12px; padding: 5px 10px;">↗ Pop Out</button>
+      </div>
       <canvas id="action-stats-canvas" width="700" height="300" style="border: 1px solid #ddd; border-radius: 4px; background: white;"></canvas>
       <div id="action-stats-legend" style="margin-top: 10px; font-size: 12px; display: flex; flex-wrap: wrap; gap: 15px;"></div>
       <div id="action-stats-summary" style="margin-top: 10px; font-size: 13px; color: #666;"></div>
     </div>
 
     <div class="panel">
-      <h2>Entropy & Force Analysis</h2>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <h2 style="margin: 0;">Entropy & Force Analysis</h2>
+        <button class="btn-secondary" id="popout-entropy-btn" style="font-size: 12px; padding: 5px 10px;">↗ Pop Out</button>
+      </div>
       <canvas id="entropy-canvas" width="700" height="300" style="border: 1px solid #ddd; border-radius: 4px; background: white;"></canvas>
       <div id="entropy-legend" style="margin-top: 10px; font-size: 12px; display: flex; flex-wrap: wrap; gap: 15px;"></div>
       <div id="entropy-summary" style="margin-top: 10px; font-size: 13px; color: #666;"></div>
@@ -2282,6 +2288,8 @@
         this.animationDelay = 500; // milliseconds between steps
         this.randomInterval = null;
         this.randomDelay = 500; // milliseconds between random actions
+        this.statsPopup = null;
+        this.entropyPopup = null;
       }
 
       initialize(o, e, g, h, q, x0) {
@@ -2731,6 +2739,133 @@
         }
         this.updatePolynomialDisplay();
         this.updateControlPanel();
+
+        // Update popup windows if they exist
+        this.updatePopups();
+      }
+
+      popoutStatsGraph() {
+        if (this.statsPopup && !this.statsPopup.closed) {
+          this.statsPopup.focus();
+          return;
+        }
+
+        const popup = window.open('', 'Action Statistics', 'width=800,height=450,resizable=yes,scrollbars=yes');
+        this.statsPopup = popup;
+
+        popup.document.write(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Action Statistics</title>
+            <style>
+              body { margin: 0; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+              h2 { margin: 0 0 15px 0; color: #333; }
+              canvas { border: 1px solid #ddd; border-radius: 4px; background: white; }
+              #legend { margin-top: 10px; font-size: 12px; display: flex; flex-wrap: wrap; gap: 15px; }
+              #summary { margin-top: 10px; font-size: 13px; color: #666; }
+            </style>
+          </head>
+          <body>
+            <h2>Action Statistics</h2>
+            <canvas id="popup-stats-canvas" width="700" height="300"></canvas>
+            <div id="legend"></div>
+            <div id="summary"></div>
+          </body>
+          </html>
+        `);
+        popup.document.close();
+
+        // Store reference for rendering
+        popup.graphCanvas = popup.document.getElementById('popup-stats-canvas');
+        popup.legendDiv = popup.document.getElementById('legend');
+        popup.summaryDiv = popup.document.getElementById('summary');
+
+        // Render immediately
+        this.updatePopups();
+      }
+
+      popoutEntropyGraph() {
+        if (this.entropyPopup && !this.entropyPopup.closed) {
+          this.entropyPopup.focus();
+          return;
+        }
+
+        const popup = window.open('', 'Entropy & Force Analysis', 'width=800,height=450,resizable=yes,scrollbars=yes');
+        this.entropyPopup = popup;
+
+        popup.document.write(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Entropy & Force Analysis</title>
+            <style>
+              body { margin: 0; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+              h2 { margin: 0 0 15px 0; color: #333; }
+              canvas { border: 1px solid #ddd; border-radius: 4px; background: white; }
+              #legend { margin-top: 10px; font-size: 12px; display: flex; flex-wrap: wrap; gap: 15px; }
+              #summary { margin-top: 10px; font-size: 13px; color: #666; }
+            </style>
+          </head>
+          <body>
+            <h2>Entropy & Force Analysis</h2>
+            <canvas id="popup-entropy-canvas" width="700" height="300"></canvas>
+            <div id="legend"></div>
+            <div id="summary"></div>
+          </body>
+          </html>
+        `);
+        popup.document.close();
+
+        // Store reference for rendering
+        popup.graphCanvas = popup.document.getElementById('popup-entropy-canvas');
+        popup.legendDiv = popup.document.getElementById('legend');
+        popup.summaryDiv = popup.document.getElementById('summary');
+
+        // Render immediately
+        this.updatePopups();
+      }
+
+      updatePopups() {
+        // Update stats popup
+        if (this.statsPopup && !this.statsPopup.closed && this.statsPopup.graphCanvas) {
+          const tempGraph = new ActionStatsGraph(this.statsPopup.graphCanvas);
+          // Temporarily override the legend/summary divs
+          const origLegend = document.getElementById('action-stats-legend');
+          const origSummary = document.getElementById('action-stats-summary');
+
+          // Swap in popup divs
+          const legendId = 'action-stats-legend';
+          const summaryId = 'action-stats-summary';
+          this.statsPopup.legendDiv.id = legendId;
+          this.statsPopup.summaryDiv.id = summaryId;
+
+          tempGraph.render(this.history.actions, this.history.currentIndex);
+
+          // Restore original IDs
+          this.statsPopup.legendDiv.id = 'legend';
+          this.statsPopup.summaryDiv.id = 'summary';
+        }
+
+        // Update entropy popup
+        if (this.entropyPopup && !this.entropyPopup.closed && this.entropyPopup.graphCanvas) {
+          const tempGraph = new EntropyGraph(this.entropyPopup.graphCanvas);
+          // Temporarily override the legend/summary divs
+          const origLegend = document.getElementById('entropy-legend');
+          const origSummary = document.getElementById('entropy-summary');
+
+          // Swap in popup divs
+          const legendId = 'entropy-legend';
+          const summaryId = 'entropy-summary';
+          this.entropyPopup.legendDiv.id = legendId;
+          this.entropyPopup.summaryDiv.id = summaryId;
+
+          tempGraph.render(this.history.initialState, this.history.actions, this.history.currentIndex);
+
+          // Restore original IDs
+          this.entropyPopup.legendDiv.id = 'legend';
+          this.entropyPopup.summaryDiv.id = 'summary';
+        }
       }
 
       updatePolynomialDisplay() {
@@ -3725,6 +3860,10 @@
     document.getElementById('redo-btn').addEventListener('click', () => app.redo());
     document.getElementById('reset-btn').addEventListener('click', () => app.reset());
     document.getElementById('animate-btn').addEventListener('click', () => app.startAnimation());
+
+    // Pop-out buttons
+    document.getElementById('popout-stats-btn').addEventListener('click', () => app.popoutStatsGraph());
+    document.getElementById('popout-entropy-btn').addEventListener('click', () => app.popoutEntropyGraph());
 
     // Conservation law buttons
     document.getElementById('g-right-btn').addEventListener('click', () => {
