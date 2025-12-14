@@ -44,6 +44,7 @@ Fast, prompt-free operation with keyboard shortcuts:
 - **Shift + key**: Apply operations with maximum available pebbles
 - **q**: Leave q pebbles (cycle parameter), move rest right - useful for reconstructing q·k(g,h)
 - **v**: Reset q·k (clear board to x₀·d part) - allows reconstruction of the q·k(g,h) part of the identity
+- **k**: Distribute (q·k) - inverse of Reset q·k, spreads consolidated pile back to monomials
 - **m**: Start/stop Game of Death mode (entropy reduction until death/empty board)
 - **Ctrl/Cmd + Z**: Undo
 - **Ctrl/Cmd + Shift + Z** or **Ctrl/Cmd + Y**: Redo
@@ -158,6 +159,63 @@ Where:
 - Press 'v' to reset → shows 17 white at (-1,0) and 17 black at (2,7)
 - Use 'q' and other operations to build up the k(g,h) polynomial
 - Successfully reaching zero state proves the identity
+
+### Distribute (q·k) - The Greedy Algorithm
+
+The **Distribute (q·k) (k)** button is the **inverse of Reset q·k** - it takes the consolidated pile created by Reset q·k and distributes it back to the individual monomial positions.
+
+**What Makes It Special:**
+
+This algorithm operates **without knowledge of the goal state** - it uses only:
+- Local pebble counts at each position
+- A record of which columns already have deposits
+- A simple greedy rule: "try to move up; if you leave a remainder, that's a mistake"
+
+**The Algorithm:**
+
+Starting from the consolidated pile at (o-1, 0) (rightmost column, bottom row):
+
+1. **Try to move up** using h-multiplication:
+   - Calculate: maxUp = ⌊count / h⌋
+   - If remainder = 0, move up and continue
+   - If remainder > 0, this is a **"mistake"** → proceed to step 2
+
+2. **The "mistake" reveals the need for a left excursion:**
+   - Perform the up move anyway (demonstrating the mistake)
+   - **Backtrack** by moving down (undoing the mistake)
+   - Identify the leftmost column in this row without deposits
+   - Execute a **left excursion** to that column
+
+3. **Left excursion procedure:**
+   - Go left from junction (o-1, i) to target column
+   - Drop exactly **q pebbles** at the target
+   - Return to junction, collecting pebbles along the way
+   - Mark target column as having a deposit
+
+4. **Repeat** until all pebbles are distributed
+
+**The "Mistakes" Are Intentional:**
+
+The up/down reversals you see (like operations 6-7 in the example) aren't bugs - they're **exploratory moves**:
+- The algorithm tries to go up to row i+1
+- Leaves a remainder behind → "we should have turned left back there"
+- Backtracks and takes the left turn instead
+- This demonstrates how a local greedy algorithm navigates without global knowledge
+
+**Why This Matters:**
+
+This algorithm shows that **you can reconstruct the monomial structure from just the consolidated sum** using only:
+- Conservation laws (no "cheating" with direct placement)
+- Local decisions (no global planning)
+- A simple greedy heuristic
+
+It's a constructive proof that the distribution exists and can be found algorithmically!
+
+**Try It:**
+1. Load any example (e.g., p=293, g=3, h=2)
+2. Press 'v' to Reset q·k → creates consolidated pile
+3. Press 'k' to Distribute → watch it systematically rebuild the monomials
+4. Observe the "mistakes" (up/down reversals) as it explores
 
 ## Automation Controls
 

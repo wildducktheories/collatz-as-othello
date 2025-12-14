@@ -533,6 +533,7 @@
         <h3 style="margin-top: 15px; margin-bottom: 8px; font-size: 14px; color: #333; border-bottom: 1px solid #ddd; padding-bottom: 4px;">Distribution Controls</h3>
         <div class="law-row">
           <button class="btn-primary" id="reset-k-btn" title="Clear board to show only x₀·d(g,h) part. Use 'q' shortcut to reconstruct q·k(g,h) part of the identity q·k(g,h) - x₀·d(g,h) = 0">Reset q·k (v)</button>
+          <button class="btn-primary" id="distribute-qk-btn" title="Distribute consolidated pile back to monomial positions using local greedy algorithm with 'mistakes'">Distribute (q·k) (k)</button>
         </div>
 
         <h3 style="margin-top: 15px; margin-bottom: 8px; font-size: 14px; color: #333; border-bottom: 1px solid #ddd; padding-bottom: 4px;">Automation Controls</h3>
@@ -2306,6 +2307,8 @@
         this.randomInterval = null;
         this.randomDelay = 500; // milliseconds between random actions
         this.gameOfDeathBias = 0; // Bias parameter for Game of Death (0 = strong exploitation, >0 = more exploration)
+        this.distributeQKInterval = null; // Interval for Distribute (q·k) animation
+        this.distributeQKState = null; // State tracking for distribution algorithm
         this.statsPopup = null;
         this.entropyPopup = null;
       }
@@ -2862,7 +2865,285 @@
         if (this.gameOfDeathInterval) {
           clearInterval(this.gameOfDeathInterval);
           this.gameOfDeathInterval = null;
-          document.getElementById('game-of-death-btn').textContent = '📉 Game of Death (m)';
+          document.getElementById('game-of-death-btn').textContent = '💀 Game of Death (m)';
+        }
+      }
+
+      startDistributeQK() {
+        if (this.distributeQKInterval) {
+          this.stopDistributeQK();
+          return;
+        }
+
+        // Stop other automations (mutually exclusive)
+        this.stopRandomExecution();
+        this.stopGameOfDeathExecution();
+
+        // Update button text
+        document.getElementById('distribute-qk-btn').textContent = '⏸ Stop Distribute';
+
+        // First, perform Reset q·k to consolidate the pile
+        this.resetK();
+
+        // Initialize distribution state
+        this.distributeQKState = {
+          columnsWithWhitePebbles: new Set(),
+          junctionCol: this.board.o - 1,
+          currentRow: 0,
+          iterations: 0,
+          maxIterations: 1000,
+          actionQueue: []  // Queue of actions to execute one at a time
+        };
+
+        // Find starting row (where the consolidated pile is)
+        for (let i = 0; i <= this.board.e; i++) {
+          if (this.board.get(this.distributeQKState.junctionCol, i) > 0) {
+            this.distributeQKState.currentRow = i;
+            break;
+          }
+        }
+
+        // Initialize columnsWithPebbles based on entire board state
+        // Rule: each column can have at most one stack of pebbles (any color)
+        // IMPORTANT: Don't track the junction column - that's where we're distributing FROM
+        const junctionCol = this.distributeQKState.junctionCol;
+        for (let i = 0; i <= this.board.e; i++) {
+          for (let j = this.board.minCol; j <= this.board.maxCol; j++) {
+            if (j === junctionCol) continue;  // Skip junction column
+            const count = this.board.get(j, i);
+            if (count !== 0) {  // ANY pebbles (white or black)
+              this.distributeQKState.columnsWithWhitePebbles.add(j);
+            }
+          }
+        }
+
+        // Start interval - execute one step at a time
+        this.distributeQKInterval = setInterval(() => {
+          if (!this.performDistributeQKStep()) {
+            this.stopDistributeQK();
+          }
+        }, this.randomDelay);  // Use same delay as random/GOD
+      }
+
+      stopDistributeQK() {
+        if (this.distributeQKInterval) {
+          clearInterval(this.distributeQKInterval);
+          this.distributeQKInterval = null;
+          this.distributeQKState = null;
+          document.getElementById('distribute-qk-btn').textContent = 'Distribute (q·k) (k)';
+        }
+      }
+
+      performDistributeQKStep() {
+        // Execute one action from the queue (or generate next batch of actions)
+        const state = this.distributeQKState;
+        if (!state) return false;
+
+        // If we have queued actions, execute the next one
+        if (state.actionQueue.length > 0) {
+          const action = state.actionQueue.shift();
+
+          // Handle special count markers
+          let actualCount = action.count;
+          if (action.count === 'max') {
+            // For gLeft: use maximum available (works for both signs)
+            const cellCount = this.board.get(action.j + 1, action.i);
+            actualCount = Math.floor(Math.abs(cellCount) / this.board.g);
+          } else if (action.count === 'all') {
+            // For gRight: move all pebbles (as absolute count)
+            actualCount = Math.abs(this.board.get(action.j, action.i));
+          } else if (action.count === 'keep-q') {
+            // For gRight at target: keep q (signed), move the rest
+            const cellCount = this.board.get(action.j, action.i);
+            actualCount = Math.abs(cellCount) - Math.abs(this.board.q);
+          }
+
+          if (actualCount > 0) {
+            this.applyAction({
+              type: action.type,
+              j: action.j,
+              i: action.i,
+              count: actualCount
+            });
+          }
+          return true;
+        }
+
+        // No queued actions - determine the next set of actions to queue
+        if (state.iterations++ >= state.maxIterations) {
+          console.error('Distribute q·k exceeded maximum iterations');
+          return false;
+        }
+
+        const pileCount = this.board.get(state.junctionCol, state.currentRow);
+
+        if (pileCount === 0) {
+          // No more pebbles at junction, done!
+          return false;
+        }
+
+        if (Math.abs(pileCount) === Math.abs(this.board.q) &&
+            Math.sign(pileCount) === Math.sign(this.board.q)) {
+          // Exactly |q| pebbles of the correct sign remaining - terminal position
+          return false;
+        }
+
+        // Try to move up (works for both positive and negative pebbles)
+        const maxUp = Math.floor(Math.abs(pileCount) / this.board.h);
+        const remainder = Math.abs(pileCount) % this.board.h;
+
+        if (remainder === 0 && maxUp > 0) {
+          // Perfect division - queue up move
+          state.actionQueue.push({
+            type: 'hUp',
+            j: state.junctionCol,
+            i: state.currentRow,
+            count: maxUp
+          });
+          state.currentRow = state.currentRow + 1;
+          return true;
+
+        } else if (remainder > 0) {
+          // MISTAKE! We have a remainder, need to do left excursion
+          // Queue all the actions for this step
+
+          // First, the "mistake" up move (if possible)
+          if (maxUp > 0) {
+            state.actionQueue.push({
+              type: 'hUp',
+              j: state.junctionCol,
+              i: state.currentRow,
+              count: maxUp
+            });
+          }
+
+          // Backtrack (undo the up move)
+          if (maxUp > 0) {
+            state.actionQueue.push({
+              type: 'hDown',
+              j: state.junctionCol,
+              i: state.currentRow + 1,
+              count: maxUp
+            });
+          }
+
+          // Find leftmost column without ANY pebbles
+          // IMPORTANT: Start from column 0, NOT minCol (-1 is reserved for x₀·g^o)
+          let targetCol = 0;
+          while (targetCol < state.junctionCol && state.columnsWithWhitePebbles.has(targetCol)) {
+            targetCol++;
+          }
+
+          if (targetCol >= state.junctionCol) {
+            console.error('No valid target column found');
+            return false;
+          }
+
+          // Queue the left excursion actions
+          this.queueLeftExcursion(state.junctionCol, targetCol, state.currentRow);
+
+          // Mark this column as having pebbles
+          state.columnsWithWhitePebbles.add(targetCol);
+          return true;
+
+        } else {
+          // Can't move up and no pebbles, done
+          return false;
+        }
+      }
+
+      queueLeftExcursion(fromCol, toCol, row) {
+        // Queue actions for: go left, drop q pebbles, return to junction
+        const state = this.distributeQKState;
+        const q = this.board.q;
+        const g = this.board.g;
+
+        // Phase 1: Go left from fromCol to toCol
+        let currentCol = fromCol;
+        while (currentCol > toCol) {
+          // We need to read the count dynamically, but for queueing we'll calculate expected values
+          // This is a simplification - in reality each step modifies the board
+          state.actionQueue.push({
+            type: 'gLeft',
+            j: currentCol - 1,
+            i: row,
+            count: 'max'  // Special marker: use max available when executed
+          });
+          currentCol--;
+        }
+
+        // Phase 2: Return to fromCol, leaving exactly q pebbles at toCol
+        currentCol = toCol;
+        while (currentCol < fromCol) {
+          state.actionQueue.push({
+            type: 'gRight',
+            j: currentCol,
+            i: row,
+            count: currentCol === toCol ? 'keep-q' : 'all'  // Special markers
+          });
+          currentCol++;
+        }
+      }
+
+      leftExcursion(fromCol, toCol, row) {
+        // Go left from fromCol to toCol, drop q pebbles at toCol, return to fromCol
+        // This executes the actual conservation law moves
+
+        const q = this.board.q;
+        const g = this.board.g;
+
+        // Phase 1: Go left from fromCol to toCol
+        let currentCol = fromCol;
+        while (currentCol > toCol) {
+          const count = this.board.get(currentCol, row);
+          const maxLeft = Math.floor(count / g);
+
+          if (maxLeft === 0) {
+            console.error(`Cannot move left from (${currentCol}, ${row}), insufficient pebbles`);
+            return;
+          }
+
+          this.applyAction({
+            type: 'gLeft',
+            j: currentCol - 1,
+            i: row,
+            count: maxLeft
+          });
+
+          currentCol--;
+        }
+
+        // Phase 2: Return to fromCol, leaving exactly q pebbles at toCol
+        // Move right back to junction, collecting pebbles along the way
+        currentCol = toCol;
+        while (currentCol < fromCol) {
+          // Re-read count each time (it changes as pebbles arrive from the left)
+          const countHere = this.board.get(currentCol, row);
+
+          if (currentCol === toCol) {
+            // At target column: keep exactly q pebbles, move the rest
+            const numToMove = countHere - q;
+            if (numToMove > 0) {
+              this.applyAction({
+                type: 'gRight',
+                j: currentCol,
+                i: row,
+                count: numToMove
+              });
+            }
+          } else {
+            // At intermediate columns: move all pebbles
+            if (countHere > 0) {
+              this.applyAction({
+                type: 'gRight',
+                j: currentCol,
+                i: row,
+                count: countHere
+              });
+            }
+          }
+
+          currentCol++;
         }
       }
 
@@ -4229,6 +4510,10 @@
       app.resetK();
     });
 
+    document.getElementById('distribute-qk-btn').addEventListener('click', () => {
+      app.startDistributeQK();
+    });
+
     document.getElementById('random-btn').addEventListener('click', () => {
       app.startRandomExecution();
     });
@@ -4285,6 +4570,11 @@
         case 'v': // Reset q·k (clear board to x₀·d part)
           e.preventDefault();
           app.resetK();
+          return;
+
+        case 'k': // Distribute (q·k) - inverse of Reset q·k
+          e.preventDefault();
+          app.startDistributeQK();
           return;
 
         case 'm': // Game of Death
