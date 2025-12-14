@@ -104,17 +104,15 @@ All formats generate clickable links for easy sharing.
 ### Example Systems
 
 **3x+1 System (g=3, h=2)**
-- Base examples: p=9, 17, 33, 65
-- Additional: p=37, 73, 281, 293, 585, 2119, 4681, 8301
+- Examples: p=9, 17, 33, 37, 65, 73, 281, 293, 585, 2119, 4681, 8301
 - Relationship: g = h² - 1 (3 = 4 - 1)
 
 **5x+1 System (g=5, h=2)**
-- Base examples: p=9, 17, 33, 65
-- Additional: p=133, 1045, 1093
+- Examples: p=9, 17, 33, 65, 133, 1045, 1093
 - Relationship: g = h² + h - 1 (5 = 4 + 2 - 1)
 
 **7x+1 System (g=7, h=2)**
-- Base examples: p=9, 17, 33, 65
+- Examples: p=9, 17, 33, 65
 - Relationship: g = h² + 2h - 1 (7 = 4 + 4 - 1)
 
 **Other Systems**
