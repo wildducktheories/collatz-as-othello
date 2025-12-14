@@ -224,20 +224,50 @@ Given infinite time and proper bias settings, the Game of Death will eventually 
 - Entropy-reducing moves are always available until the zero state
 - The empty board represents complete cancellation: death
 
-**The Irony of Optimization:**
+**The Paradox of 1-Step, Global Optimization:**
 
-Empirical observation reveals a surprising result: the **Random strategy often outperforms the Game of Death** in finding solutions efficiently. This counterintuitive finding demonstrates a fundamental lesson:
+Empirical observation reveals a counterintuitive phenomenon: **low-bias configurations that favor globally optimal entropy-reducing steps actually inhibit rapid transition to the final state.**
 
-- **Greedy local choices can trap you**: Even with probabilistic sampling, the Game of Death can get stuck in local minima
-- **Random exploration explores more broadly**: Random mode stumbles into diverse configurations leading to globally better outcomes
-- **The entropy landscape has many dead ends**: Locally optimal moves often lead to configurations with no path forward
+**The Mechanism:**
 
-This is analogous to well-known phenomena in optimization theory:
-- Simulated annealing outperforms greedy hill climbing
-- Random search can beat gradient descent in high-dimensional spaces
-- Evolutionary algorithms use randomness to escape local optima
+Low bias (bias=0) strongly favors the single best entropy-reducing action for the *next* move. However, this greedy strategy creates a critical problem:
 
-**Lesson:** When the search space has complex structure with many local minima, apparently "inefficient" random exploration can be more effective than "intelligent" greedy optimization. The Game of Death is useful for understanding entropy reduction patterns, but Random mode may actually find solutions faster.
+1. **Island Formation**: Pebbles segregate into isolated "islands" of the same color
+   - All-white island: pebbles of positive coefficients clustered together
+   - All-black island: pebbles of negative coefficients clustered together
+
+2. **Interaction Starvation**: Same-color islands almost never interact with each other
+   - White pebbles move among themselves
+   - Black pebbles move among themselves
+   - No mixing between white and black
+
+3. **Cancellation Failure**: Balanced force reductions require opposite colors to interact
+   - Force balance equation: white terms = black terms
+   - Cancellation happens when white and black pebbles meet
+   - Without interaction, no cancellation → no path to zero state
+
+**The Paradox:**
+
+- **Low bias (greedy)**: Minimizes entropy at each step → forms color islands → prevents interaction → blocks cancellation → slow convergence
+- **High bias (exploratory)**: Increases entropy in short term → mixes colors → enables interaction → allows cancellation → fast convergence
+
+**Why Higher Entropy Actions Help:**
+
+Biasing toward higher-entropy actions (bias > 0) paradoxically accelerates convergence:
+- Short-term cost: entropy temporarily increases (seems wasteful)
+- Long-term benefit: opposite-colored pebbles brought into proximity
+- Critical effect: enables balanced force reductions (white + black → zero)
+- Result: faster transition to death despite "inefficient" moves
+
+**The Lesson:**
+
+Optimizing for 1-step global optimality ≠ optimizing for multi-step global optimality. The globally optimal *next* move may destroy the path to the globally optimal *final* state. This is why Random mode (maximum mixing) often outperforms low-bias Game of Death—it continuously creates opportunities for opposite colors to interact and cancel.
+
+**Practical Implications:**
+- Start with bias=0 to observe island formation
+- Increase bias to 1-2 to watch mixing enable cancellations
+- Compare convergence times: low bias vs high bias vs Random
+- The Game of Death teaches that sometimes you must increase chaos to achieve order (death).
 
 ## How It Works
 
