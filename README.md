@@ -123,6 +123,8 @@ All formats generate clickable links for easy sharing.
 
 Enable "Spread" mode to automatically repeat Left/Up operations until all multiples are reduced to singletons - useful for quickly simplifying board states.
 
+## Distribution Controls
+
 ### Reset q·k and Reconstruction Workflow
 
 The **Reset q·k (v)** button provides a powerful workflow for understanding the polynomial identity:
@@ -156,6 +158,8 @@ Where:
 - Press 'v' to reset → shows 17 white at (-1,0) and 17 black at (2,7)
 - Use 'q' and other operations to build up the k(g,h) polynomial
 - Successfully reaching zero state proves the identity
+
+## Automation Controls
 
 ### Random Exploration
 
