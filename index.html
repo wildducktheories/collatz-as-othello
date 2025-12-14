@@ -4305,7 +4305,8 @@
           e.preventDefault();
           const maxLeft = Math.floor(count / app.board.g);
           if (maxLeft > 0) {
-            const numLeft = e.shiftKey ? maxLeft : 1;
+            const spreadMode = document.getElementById('spread-mode').checked;
+            const numLeft = spreadMode ? maxLeft : (e.shiftKey ? maxLeft : 1);
             const success = app.applyAction({type: 'gLeft', j: j - 1, i, count: numLeft});
             if (success) {
               app.selectedCell = { j: j - 1, i: i };
@@ -4331,7 +4332,8 @@
           e.preventDefault();
           const maxUp = Math.floor(count / app.board.h);
           if (maxUp > 0) {
-            const numUp = e.shiftKey ? maxUp : 1;
+            const spreadModeUp = document.getElementById('spread-mode').checked;
+            const numUp = spreadModeUp ? maxUp : (e.shiftKey ? maxUp : 1);
             const success = app.applyAction({type: 'hUp', j, i, count: numUp});
             if (success) {
               app.selectedCell = { j: j, i: i + 1 };
