@@ -44,7 +44,7 @@ Fast, prompt-free operation with keyboard shortcuts:
 - **Shift + key**: Apply operations with maximum available pebbles
 - **q**: Leave q pebbles (cycle parameter), move rest right - useful for reconstructing q·k(g,h)
 - **v**: Reset q·k (clear board to x₀·d part) - allows reconstruction of the q·k(g,h) part of the identity
-- **m**: Start/stop Local Minimiser mode
+- **m**: Start/stop Game of Death mode (entropy reduction until death/empty board)
 - **Ctrl/Cmd + Z**: Undo
 - **Ctrl/Cmd + Shift + Z** or **Ctrl/Cmd + Y**: Redo
 
@@ -179,39 +179,57 @@ The **Random (r)** button provides automatic exploration of the board state:
 
 Random mode makes exploration playful and can reveal unexpected transformation sequences you might not have tried manually.
 
-### Local Minimiser
+### The Game of Death
 
-The **Local Minimiser (m)** button provides greedy entropy-reduction exploration:
+**💀 A tip of the hat to John Conway's Game of Life**
 
-- **Press 'm' or click the 📉 Local Minimiser button** to start automatic local minimization
+While Conway's Game of Life creates complexity from simple rules, the **Game of Death** destroys complexity, systematically reducing entropy until the board reaches the empty state—**death**.
+
+The **Game of Death (m)** button provides automatic entropy-reduction exploration:
+
+- **Press 'm' or click the 💀 Game of Death button** to start the march toward death
 - At each step, evaluates ALL possible actions and their effect on board entropy
-- Selects randomly from the top 10 entropy-reducing actions (with equal probability 1/10 each)
+- Selects from entropy-reducing actions using an inverse uniform distribution (see below)
 - Executes conservation law operations at 500ms intervals
-- Auto-stops when no actions are available
+- **Expected outcome**: Given enough time, all boards eventually reach the empty state (death)
 - **Press 'm' again** to stop at any time
 
-**Why "Local" Minimiser?**
+**The Probabilistic Sampling Algorithm:**
 
-This algorithm makes **locally optimal** choices but may miss **globally better** strategies. For example:
-- Moving black pebbles closer to white pebbles might not reduce entropy immediately
-- But it sets up future cancellations that would result in much greater entropy reduction overall
-- The greedy algorithm can't see these multi-step opportunities, hence "local" minimization
+The Game of Death uses a sophisticated sampling strategy with a **bias parameter**:
 
-The stochastic top-10 sampling helps escape local minima while still maintaining a strong bias toward entropy reduction.
+1. Sample u from uniform distribution U(0,1)
+2. Calculate biased inverse: (1/u) × 2^bias
+3. Round up to nearest power of 2: N = 2^⌈log₂(biased_inverse)⌉
+4. Select randomly from top N entropy-reducing actions
 
-**When to Use Local Minimiser:**
+**Bias Parameter Effects:**
 
-1. **Quick Simplification**: Watch it rapidly reduce board complexity through greedy choices
-2. **Entropy Monitoring**: Observe how the entropy graph responds to systematic reduction
-3. **Compare with Random**: See how directed (but local) optimization differs from random exploration
-4. **Learn Patterns**: Identify which operations most effectively reduce entropy in different configurations
+- **bias=0** (default): Strong exploitation
+  - P(N=1) = 50% — picks best action half the time
+  - P(N=2) = 25%, P(N=4) = 12.5%, P(N=8) = 6.25%, etc.
 
-**The Irony of Local Optimization:**
+- **bias=1**: Balanced exploration
+  - P(N=2) = 50%, P(N=4) = 25%, P(N=8) = 12.5%, etc.
+  - Shifts distribution toward larger candidate pools
 
-Empirical observation reveals a surprising result: the **Random strategy often outperforms the Local Minimiser** in finding solutions efficiently. This counterintuitive finding demonstrates a fundamental lesson in optimization:
+- **bias=2+**: Strong exploration
+  - Allows more high-entropy actions into candidate pool
+  - Helps escape local minima but may slow convergence
 
-- **Greedy local choices can trap you**: The Local Minimiser gets stuck in local minima even with top-10 sampling
-- **Random exploration explores more broadly**: Random mode stumbles into diverse configurations, some leading to globally better outcomes
+**Why "Death" is Inevitable:**
+
+Given infinite time and proper bias settings, the Game of Death will eventually reach the empty board because:
+- Conservation laws preserve the zero polynomial identity
+- Entropy-reducing moves are always available until the zero state
+- The empty board represents complete cancellation: death
+
+**The Irony of Optimization:**
+
+Empirical observation reveals a surprising result: the **Random strategy often outperforms the Game of Death** in finding solutions efficiently. This counterintuitive finding demonstrates a fundamental lesson:
+
+- **Greedy local choices can trap you**: Even with probabilistic sampling, the Game of Death can get stuck in local minima
+- **Random exploration explores more broadly**: Random mode stumbles into diverse configurations leading to globally better outcomes
 - **The entropy landscape has many dead ends**: Locally optimal moves often lead to configurations with no path forward
 
 This is analogous to well-known phenomena in optimization theory:
@@ -219,7 +237,7 @@ This is analogous to well-known phenomena in optimization theory:
 - Random search can beat gradient descent in high-dimensional spaces
 - Evolutionary algorithms use randomness to escape local optima
 
-**Lesson:** When the search space has complex structure with many local minima, apparently "inefficient" random exploration can be more effective than "intelligent" greedy optimization. The Local Minimiser is useful for understanding entropy reduction patterns, but Random mode may actually find solutions faster.
+**Lesson:** When the search space has complex structure with many local minima, apparently "inefficient" random exploration can be more effective than "intelligent" greedy optimization. The Game of Death is useful for understanding entropy reduction patterns, but Random mode may actually find solutions faster.
 
 ## How It Works
 

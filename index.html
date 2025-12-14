@@ -531,7 +531,13 @@
         <div class="law-row">
           <button class="btn-primary" id="reset-k-btn" title="Clear board to show only x₀·d(g,h) part. Use 'q' shortcut to reconstruct q·k(g,h) part of the identity q·k(g,h) - x₀·d(g,h) = 0">Reset q·k (v)</button>
           <button class="btn-primary" id="random-btn">🎲 Random (r)</button>
-          <button class="btn-primary" id="local-minimiser-btn">📉 Local Minimiser (m)</button>
+          <button class="btn-primary" id="game-of-death-btn" title="The Game of Death: entropy reduction until the board reaches the empty state (death). A nod to Conway's Game of Life.">💀 Game of Death (m)</button>
+        </div>
+        <div class="law-row" style="align-items: center; font-size: 12px;">
+          <label for="god-bias-input" title="Bias parameter: 0=strong exploitation (50% chance N=1), higher values favor exploration (shift toward larger N)">
+            💀 Bias: <input type="number" id="god-bias-input" min="0" max="10" step="1" value="0" style="width: 50px; padding: 2px 4px; font-size: 12px;">
+          </label>
+          <span style="margin-left: 8px; color: #666;">(0=exploit, higher=explore)</span>
         </div>
       </div>
       <div style="font-size: 12px; margin-top: 8px; color: #666; line-height: 1.6;">
@@ -2292,6 +2298,7 @@
         this.animationDelay = 500; // milliseconds between steps
         this.randomInterval = null;
         this.randomDelay = 500; // milliseconds between random actions
+        this.gameOfDeathBias = 0; // Bias parameter for Game of Death (0 = strong exploitation, >0 = more exploration)
         this.statsPopup = null;
         this.entropyPopup = null;
       }
@@ -2513,7 +2520,7 @@
       reset() {
         this.stopAnimation();
         this.stopRandomExecution();
-        this.stopLocalMinimiserExecution();
+        this.stopGameOfDeathExecution();
         if (this.initialBoard) {
           this.board = this.initialBoard.clone();
           this.laws = new ConservationLaws(this.board);
@@ -2667,7 +2674,7 @@
         return success;
       }
 
-      performLocalMinimiserAction() {
+      performGameOfDeathAction() {
         // Get current entropy
         const currentEntropy = this.board.calculateEntropy();
 
@@ -2740,7 +2747,7 @@
         }
 
         if (candidateActions.length === 0) {
-          this.stopLocalMinimiserExecution();
+          this.stopGameOfDeathExecution();
           return false;
         }
 
@@ -2758,12 +2765,15 @@
           return a.type.localeCompare(b.type);  // Alphabetical
         });
 
-        // Sample N using inverse uniform distribution: u ~ U(0,1), N = 2^ceil(log2(1/u))
-        // This creates variable-sized candidate pool with logarithmic distribution
-        // Heavily favors small N (exploitation) but occasionally allows larger N (exploration)
+        // Sample N using inverse uniform distribution with bias parameter
+        // Algorithm: u ~ U(0,1), N = 2^ceil(log2((1/u) * 2^bias))
+        // bias=0: Strong exploitation (P(N=1)=0.5, P(N=2)=0.25, ...)
+        // bias>0: More exploration (shifts distribution toward larger N)
         const u = Math.max(Math.random(), 1e-6);  // Avoid division by zero
         const inverse = 1 / u;
-        const nextPowerOf2 = Math.pow(2, Math.ceil(Math.log2(inverse)));
+        const bias = this.gameOfDeathBias || 0;  // Default to 0 if not set
+        const biasedInverse = inverse * Math.pow(2, bias);
+        const nextPowerOf2 = Math.pow(2, Math.ceil(Math.log2(biasedInverse)));
         const topN = Math.min(nextPowerOf2, candidateActions.length);
         const topCandidates = candidateActions.slice(0, topN);
         const bestAction = topCandidates[Math.floor(Math.random() * topCandidates.length)];
@@ -2794,7 +2804,7 @@
         }
 
         // Stop local minimiser if running (mutually exclusive)
-        this.stopLocalMinimiserExecution();
+        this.stopGameOfDeathExecution();
 
         // Update button text
         document.getElementById('random-btn').textContent = '⏸ Stop Random';
@@ -2818,9 +2828,9 @@
         }
       }
 
-      startLocalMinimiserExecution() {
-        if (this.localMinimiserInterval) {
-          this.stopLocalMinimiserExecution();
+      startGameOfDeathExecution() {
+        if (this.gameOfDeathInterval) {
+          this.stopGameOfDeathExecution();
           return;
         }
 
@@ -2828,24 +2838,24 @@
         this.stopRandomExecution();
 
         // Update button text
-        document.getElementById('local-minimiser-btn').textContent = '⏸ Stop Local Minimiser';
+        document.getElementById('game-of-death-btn').textContent = '⏸ Stop Game of Death';
 
         // Perform first action immediately
-        this.performLocalMinimiserAction();
+        this.performGameOfDeathAction();
 
         // Start interval
-        this.localMinimiserInterval = setInterval(() => {
-          if (!this.performLocalMinimiserAction()) {
-            this.stopLocalMinimiserExecution();
+        this.gameOfDeathInterval = setInterval(() => {
+          if (!this.performGameOfDeathAction()) {
+            this.stopGameOfDeathExecution();
           }
         }, this.randomDelay);  // Use same delay as random
       }
 
-      stopLocalMinimiserExecution() {
-        if (this.localMinimiserInterval) {
-          clearInterval(this.localMinimiserInterval);
-          this.localMinimiserInterval = null;
-          document.getElementById('local-minimiser-btn').textContent = '📉 Local Minimiser (m)';
+      stopGameOfDeathExecution() {
+        if (this.gameOfDeathInterval) {
+          clearInterval(this.gameOfDeathInterval);
+          this.gameOfDeathInterval = null;
+          document.getElementById('game-of-death-btn').textContent = '📉 Game of Death (m)';
         }
       }
 
@@ -2857,7 +2867,7 @@
 
         // Stop random and local minimiser execution if running
         this.stopRandomExecution();
-        this.stopLocalMinimiserExecution();
+        this.stopGameOfDeathExecution();
 
         // Go to start of history (initialState)
         this.history.currentIndex = -1;
@@ -3448,7 +3458,7 @@
           document.getElementById('h-up-btn').disabled = !this.laws.canApplyHMultiplyUp(j, i);
           document.getElementById('special-btn').disabled = !this.laws.canApplySpecial(j, i);
           document.getElementById('reverse-special-btn').disabled = !this.laws.canApplyReverseSpecial(j, i);
-          // Reset q·k, Random, and Local Minimiser are always available
+          // Reset q·k, Random, and Game of Death are always available
         } else {
           document.getElementById('selected-info').textContent = 'No cell selected. Click a cell on the board to select it.';
           document.getElementById('g-right-btn').disabled = true;
@@ -3457,7 +3467,7 @@
           document.getElementById('h-up-btn').disabled = true;
           document.getElementById('special-btn').disabled = true;
           document.getElementById('reverse-special-btn').disabled = true;
-          // Reset q·k, Random, and Local Minimiser are always available
+          // Reset q·k, Random, and Game of Death are always available
         }
       }
 
@@ -4216,8 +4226,12 @@
       app.startRandomExecution();
     });
 
-    document.getElementById('local-minimiser-btn').addEventListener('click', () => {
-      app.startLocalMinimiserExecution();
+    document.getElementById('game-of-death-btn').addEventListener('click', () => {
+      app.startGameOfDeathExecution();
+    });
+
+    document.getElementById('god-bias-input').addEventListener('input', (e) => {
+      app.gameOfDeathBias = parseInt(e.target.value) || 0;
     });
 
     // Persistence buttons
@@ -4266,9 +4280,9 @@
           app.resetK();
           return;
 
-        case 'm': // Local Minimiser
+        case 'm': // Game of Death
           e.preventDefault();
-          app.startLocalMinimiserExecution();
+          app.startGameOfDeathExecution();
           return;
       }
 
