@@ -4678,8 +4678,8 @@
         case 'q': // Leave q pebbles (cycle parameter), move rest right
           e.preventDefault();
           const q = app.board.q;
-          if (count > q && q >= 1) {
-            const toMove = count - q;
+          if (count >= Math.abs(q)) {
+            const toMove = count - Math.abs(q);
             const success = app.applyAction({type: 'gRight', j, i, count: toMove});
             if (success) {
               app.selectedCell = { j: j + 1, i: i };
