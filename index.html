@@ -333,6 +333,20 @@
       justify-content: flex-end;
     }
 
+    .section-anchor {
+      opacity: 0;
+      margin-left: 6px;
+      font-size: 14px;
+      text-decoration: none;
+      color: #94a3b8;
+      transition: opacity 0.15s;
+      vertical-align: middle;
+    }
+    h2:hover .section-anchor,
+    .section-anchor:focus {
+      opacity: 1;
+    }
+
     @media (max-width: 768px) {
       body {
         padding: 10px;
@@ -367,7 +381,7 @@
       <p>Interactive visualization of Collatz-type cycles using the Othello board analogy.
       <br>🎮 <a href="https://wildducktheories.github.io/collatz-as-othello/" target="_blank" style="color: #ffffff; text-decoration: underline;">Latest Version</a> |
       📦 <a href="https://github.com/wildducktheories/collatz-as-othello/" target="_blank" style="color: #ffffff; text-decoration: underline;">Source Code</a> |
-      📄 <a href="https://drive.google.com/file/d/1jdISz5k3N2xCxASek1AGC6UGJeYRF0V1/view" target="_blank" style="color: #ffffff; text-decoration: underline;">Paper</a> |
+      📄 <a href="https://github.com/wildducktheories/collatz-as-othello/tree/master/papers" target="_blank" style="color: #ffffff; text-decoration: underline;">Papers</a> |
       💬 <a href="https://www.reddit.com/r/Collatz/comments/1pj1hjv/announcing_the_interactive_collatz_othello_board/" target="_blank" style="color: #ffffff; text-decoration: underline;">Discussion</a></p>
     </header>
 
@@ -589,6 +603,23 @@
       <canvas id="entropy-canvas" width="700" height="300" style="border: 1px solid #ddd; border-radius: 4px; background: white;"></canvas>
       <div id="entropy-legend" style="margin-top: 10px; font-size: 12px; display: flex; flex-wrap: wrap; gap: 15px;"></div>
       <div id="entropy-summary" style="margin-top: 10px; font-size: 13px; color: #666;"></div>
+    </div>
+
+    <div class="panel" id="delta-k">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <h2 style="margin: 0;">x vs &Delta;k Plot<a href="#delta-k" class="section-anchor" id="delta-k-anchor" title="Copy link to this section">&#182;</a></h2>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <label style="font-size: 13px; color: #555; display: flex; align-items: center; gap: 4px; cursor: pointer;">
+            <input type="checkbox" id="xdk-show-evens" checked> evens
+          </label>
+          <button class="btn-secondary" id="xdk-cycle-btn">Cycle</button>
+          <button class="btn-secondary" id="popout-xdk-btn" title="Pop out to separate window (exit fullscreen first)" style="font-size: 16px; padding: 4px 8px; min-width: 32px;">&#x29c9;</button>
+        </div>
+      </div>
+      <canvas id="xdk-canvas" width="700" height="300" style="border: 1px solid #ddd; border-radius: 4px; background: white;"></canvas>
+      <div id="xdk-legend" style="margin-top: 10px; font-size: 12px; display: flex; flex-wrap: wrap; gap: 15px;"></div>
+      <div id="xdk-info" style="margin-top: 8px; font-size: 13px; color: #555; font-family: monospace; min-height: 1.5em;"></div>
+      <div id="xdk-summary" style="margin-top: 6px; font-size: 13px; color: #666;"></div>
     </div>
 
     <div class="polynomial-panel panel">
@@ -2290,6 +2321,474 @@
       }
     }
 
+    // ========== x vs Delta-k Graph Class ==========
+    class XDeltaKGraph {
+      constructor(canvas) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d');
+        this.width = canvas.width;
+        this.height = canvas.height;
+        this.padding = { top: 20, right: 20, bottom: 50, left: 60 };
+        this.hoveredN = null;
+        this.mouseIsOver = false;
+        this.currentParams = null;
+        this.currentCyclePoints = null;
+        this.lastRenderArgs = null;
+        this.showEvens = true;
+        this.doc = document;
+        this._setupEvents();
+      }
+
+      resize(w, h) {
+        this.canvas.width = w;
+        this.canvas.height = h;
+        this.width = w;
+        this.height = h;
+      }
+
+      _setupEvents() {
+        this.canvas.addEventListener('mouseenter', () => { this.mouseIsOver = true; });
+        this.canvas.addEventListener('mousemove', (evt) => {
+          if (!this.currentParams) return;
+          const rect = this.canvas.getBoundingClientRect();
+          const mouseX = evt.clientX - rect.left;
+          const { gamma, delta0, dkLo, dkHi } = this.currentParams;
+          const dkRange = (dkHi || 0) - (dkLo || 0);
+          if (dkRange <= 0) return;
+          const plotW = this.width - this.padding.left - this.padding.right;
+          const dk = (dkLo || 0) + (mouseX - this.padding.left) / plotW * dkRange;
+          const nMin = Math.ceil(((dkLo || 0) - delta0) / gamma);
+          const nMax = Math.floor(((dkHi || 0) - delta0) / gamma);
+          const n = Math.max(nMin, Math.min(nMax, Math.round((dk - delta0) / gamma)));
+          if (n !== this.hoveredN) {
+            this.hoveredN = n;
+            this._rerender();
+          }
+        });
+        this.canvas.addEventListener('mouseleave', () => {
+          this.mouseIsOver = false;
+          if (this.hoveredN !== null) {
+            this.hoveredN = null;
+            this._rerender();
+          }
+        });
+      }
+
+      _rerender() {
+        if (!this.lastRenderArgs) return;
+        this.render(...this.lastRenderArgs);
+      }
+
+      computeParams(p, g, h) {
+        const structure = parseBinaryToStructure(p);
+        const { o, e, monomials } = structure;
+        const k = computeK(monomials, g, h);
+        const d = Math.pow(h, e) - Math.pow(g, o);
+
+        // k_hat = sum_{j=0}^{o-1} g^(o-1-j) * h^j  (minimum k)
+        let kHat = 0;
+        for (let j = 0; j < o; j++) {
+          kHat += Math.pow(g, o - 1 - j) * Math.pow(h, j);
+        }
+
+        const gamma = gcd(Math.abs(k), Math.abs(d));
+        const x0 = Math.round(k / gamma);
+        const q = Math.round(d / gamma);
+        const deltaK = k - kHat;
+        // delta_k_max = (h^(e-o) - 1) * (k_hat - g^(o-1))
+        const deltaKMax = (Math.pow(h, e - o) - 1) * (kHat - Math.pow(g, o - 1));
+        const slope = q / d;       // = 1/gamma
+        const intercept = q * kHat / d;  // = kHat/gamma
+
+        // Express intercept as reduced rational kHat/gamma
+        const interceptGcd = gcd(Math.abs(kHat), gamma);
+        const interceptNum = kHat / interceptGcd;
+        const interceptDen = gamma / interceptGcd;
+        const interceptStr = interceptDen === 1
+          ? String(interceptNum)
+          : interceptNum + '/' + interceptDen;
+
+        // delta0: offset so that integer-x lattice points are at delta0 + n*gamma
+        const delta0 = ((gamma - (kHat % gamma)) % gamma);
+        return { o, e, k, d, kHat, gamma, x0, q, deltaK, deltaKMax, slope, intercept, interceptStr, delta0 };
+      }
+
+      render(p, g, h, legendId, summaryId, infoId) {
+        const ctx = this.ctx;
+        ctx.clearRect(0, 0, this.width, this.height);
+
+        if (!p || p <= 0 || isNaN(g) || isNaN(h)) {
+          ctx.fillStyle = '#999';
+          ctx.font = '14px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('Initialize board to see plot', this.width / 2, this.height / 2);
+          return;
+        }
+
+        let params;
+        try {
+          params = this.computeParams(p, g, h);
+        } catch (err) {
+          ctx.fillStyle = '#999';
+          ctx.font = '14px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('Error computing parameters', this.width / 2, this.height / 2);
+          return;
+        }
+
+        const { o, e, k, d, kHat, gamma, x0, q, deltaK, deltaKMax, slope, intercept, delta0 } = params;
+        this.currentParams = params;
+        this.lastRenderArgs = [p, g, h, legendId, summaryId, infoId];
+
+        if (d <= 0) {
+          ctx.fillStyle = '#999';
+          ctx.font = '14px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('No valid cycle (d \u2264 0)', this.width / 2, this.height / 2);
+          return;
+        }
+
+        const plotW = this.width - this.padding.left - this.padding.right;
+        const plotH = this.height - this.padding.top - this.padding.bottom;
+
+        // --- Pre-compute cycle elements (needed to determine full Δk range) ---
+        const pCycle = enumeratePCycle(p);
+        const cyclePoints = [];
+        for (const pi of pCycle) {
+          try {
+            const si = parseBinaryToStructure(pi);
+            const ki = computeK(si.monomials, g, h);
+            const dki = ki - kHat;
+            const xi = Math.round(ki / gamma);
+            const isOdd = pi % 2 !== 0;
+            if (this.showEvens || isOdd) cyclePoints.push({ pi, xi, dki, isOdd });
+          } catch (e) { /* skip invalid */ }
+        }
+        this.currentCyclePoints = cyclePoints;
+
+        // Extend Δk axis to cover current element and all cycle points
+        let dkLo = Math.min(0, deltaK);
+        let dkHi = Math.max(deltaKMax, deltaK);
+        for (const cp of cyclePoints) {
+          dkLo = Math.min(dkLo, cp.dki);
+          dkHi = Math.max(dkHi, cp.dki);
+        }
+        params.dkLo = dkLo;
+        params.dkHi = dkHi;
+
+        // y-axis range: cover affine line, gx+q series, and h*x series
+        // Both series are linear in dk, so extremes occur at the dk endpoints.
+        const xAtLo = intercept + slope * dkLo;
+        const xAtHi = intercept + slope * dkHi;
+        let yLo = Math.floor(Math.min(xAtLo, xAtHi)) - 1;
+        let yHi = Math.ceil(Math.max(xAtLo, xAtHi)) + 1;
+        const gxqAtLo = g * xAtLo + q;
+        const gxqAtHi = g * xAtHi + q;
+        yLo = Math.min(yLo, Math.floor(Math.min(gxqAtLo, gxqAtHi)) - 1);
+        yHi = Math.max(yHi, Math.ceil(Math.max(gxqAtLo, gxqAtHi)) + 1);
+        const hxAtLo = h * xAtLo;
+        const hxAtHi = h * xAtHi;
+        yLo = Math.min(yLo, Math.floor(Math.min(hxAtLo, hxAtHi)) - 1);
+        yHi = Math.max(yHi, Math.ceil(Math.max(hxAtLo, hxAtHi)) + 1);
+        const yRange = yHi - yLo;
+
+        const dkRange = dkHi - dkLo;
+        const mapDK = (dk) => this.padding.left + (dkRange > 0 ? (dk - dkLo) / dkRange * plotW : 0);
+        const mapX  = (xv) => this.padding.top + (1 - (xv - yLo) / yRange) * plotH;
+
+        // --- Y-axis labels (~5) ---
+        const yRaw = yRange / 5;
+        const yMag = Math.pow(10, Math.floor(Math.log10(Math.max(yRaw, 1))));
+        const yNorm = yRaw / yMag;
+        const labelStep = (yNorm < 1.5 ? 1 : yNorm < 3.5 ? 2 : yNorm < 7.5 ? 5 : 10) * yMag;
+        ctx.font = '10px monospace';
+        ctx.textBaseline = 'middle';
+        const yFirst = Math.ceil(yLo / labelStep) * labelStep;
+        for (let xv = yFirst; xv <= yHi; xv += labelStep) {
+          const py = mapX(xv);
+          ctx.fillStyle = '#666';
+          ctx.textAlign = 'right';
+          ctx.fillText(xv.toString(), this.padding.left - 4, py);
+        }
+
+        // --- Axes ---
+        ctx.strokeStyle = '#bbb';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(this.padding.left, this.padding.top);
+        ctx.lineTo(this.padding.left, this.height - this.padding.bottom);
+        ctx.lineTo(this.width - this.padding.right, this.height - this.padding.bottom);
+        ctx.stroke();
+
+        // --- Δk=0 reference line (when axis extends into negative Δk) ---
+        if (dkLo < 0) {
+          const pxZero = mapDK(0);
+          ctx.strokeStyle = '#bbb';
+          ctx.lineWidth = 1;
+          ctx.setLineDash([4, 4]);
+          ctx.beginPath();
+          ctx.moveTo(pxZero, this.padding.top);
+          ctx.lineTo(pxZero, this.height - this.padding.bottom);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+
+        // --- Delta-k_max vertical dashed line (odd-element upper bound) ---
+        const pxDKmax = mapDK(deltaKMax);
+        ctx.strokeStyle = '#94a3b8';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([5, 4]);
+        ctx.beginPath();
+        ctx.moveTo(pxDKmax, this.padding.top);
+        ctx.lineTo(pxDKmax, this.height - this.padding.bottom);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '9px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText('\u0394k\u2098\u2090\u2093 (odd)', pxDKmax, this.padding.top - 1);
+
+        // --- x-axis labels (~5) ---
+        ctx.fillStyle = '#888';
+        ctx.font = '10px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        const dkRaw = dkRange / 5;
+        const dkMag = Math.pow(10, Math.floor(Math.log10(Math.max(dkRaw, 1))));
+        const dkNorm = dkRaw / dkMag;
+        const dkStep = (dkNorm < 1.5 ? 1 : dkNorm < 3.5 ? 2 : dkNorm < 7.5 ? 5 : 10) * dkMag;
+        const dkFirst = Math.ceil(dkLo / dkStep) * dkStep;
+        for (let dk = dkFirst; dk <= dkHi; dk += dkStep) {
+          ctx.fillText(dk.toString(), mapDK(dk), this.height - this.padding.bottom + 4);
+        }
+
+        // --- Affine line ---
+        ctx.strokeStyle = '#3b82f6';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(mapDK(dkLo), mapX(xAtLo));
+        ctx.lineTo(mapDK(dkHi), mapX(xAtHi));
+        ctx.stroke();
+
+        // Draw non-current cycle elements first (smaller)
+        for (const cp of cyclePoints) {
+          if (cp.pi === p) continue;
+          ctx.fillStyle = cp.isOdd ? '#ef4444' : '#22c55e';
+          ctx.strokeStyle = '#fff';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.arc(mapDK(cp.dki), mapX(cp.xi), 4, 0, 2 * Math.PI);
+          ctx.fill();
+          ctx.stroke();
+        }
+
+        // --- Current point (larger, with white ring) ---
+        const cpx = mapDK(deltaK);
+        const cpy = mapX(x0);
+        ctx.fillStyle = p % 2 !== 0 ? '#ef4444' : '#22c55e';
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(cpx, cpy, 6, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.stroke();
+
+        // --- gx+q and x/h dots: one of each for every lattice point in range ---
+        const nFirst = Math.ceil((dkLo - delta0) / gamma);
+        const nLast = Math.floor((dkHi - delta0) / gamma);
+
+        // gx+q dots (green — destination of odd/red elements)
+        ctx.fillStyle = '#22c55e';
+        for (let n = nFirst; n <= nLast; n++) {
+          const dk = delta0 + n * gamma;
+          const xv = intercept + slope * dk;
+          ctx.beginPath();
+          ctx.arc(mapDK(dk), mapX(g * xv + q), 1, 0, 2 * Math.PI);
+          ctx.fill();
+        }
+
+        // h*x dots (red — destination of even/green elements)
+        ctx.fillStyle = '#ef4444';
+        for (let n = nFirst; n <= nLast; n++) {
+          const dk = delta0 + n * gamma;
+          const xv = intercept + slope * dk;
+          ctx.beginPath();
+          ctx.arc(mapDK(dk), mapX(h * xv), 1, 0, 2 * Math.PI);
+          ctx.fill();
+        }
+
+        // --- Hover indicator ---
+        if (this.hoveredN !== null) {
+          const hdk = delta0 + this.hoveredN * gamma;
+          const hxv = intercept + slope * hdk;
+          const hxInt = Math.round(hxv);
+          const hpx = mapDK(hdk);
+          const hpy = mapX(hxInt);
+          ctx.strokeStyle = 'rgba(234, 179, 8, 0.5)';
+          ctx.lineWidth = 1;
+          ctx.setLineDash([3, 3]);
+          ctx.beginPath();
+          ctx.moveTo(hpx, this.padding.top);
+          ctx.lineTo(hpx, this.height - this.padding.bottom);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(this.padding.left, hpy);
+          ctx.lineTo(this.width - this.padding.right, hpy);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.strokeStyle = '#eab308';
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.arc(hpx, hpy, 8, 0, 2 * Math.PI);
+          ctx.stroke();
+
+          // --- Guidelines: vertical x→gx+q, horizontal gx+q→affine line (odd p);
+          //                 horizontal x→Δk(x/h), vertical down to x/h (even p) ---
+          const hoveredCp = cyclePoints.find(cp => Math.abs(cp.dki - hdk) < 0.5 && cp.xi === hxInt);
+          const interceptR = hoveredCp && hoveredCp.pi === p ? 6 : 4;
+          if (hoveredCp && hoveredCp.isOdd) {
+            // Odd p: vertical up x→gx+q, horizontal across to next Δk (green: showing where red goes)
+            const gxq = g * hxInt + q;
+            const gxqpy = mapX(gxq);
+            const dkStar = slope !== 0 ? (gxq - intercept) / slope : dkHi;
+            const dkStarPx = mapDK(dkStar);
+            ctx.strokeStyle = '#22c55e';
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([4, 4]);
+            ctx.beginPath();
+            ctx.moveTo(hpx, hpy);
+            ctx.lineTo(hpx, gxqpy);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(hpx, gxqpy);
+            ctx.lineTo(dkStarPx, gxqpy);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.fillStyle = '#22c55e';
+            ctx.beginPath();
+            ctx.arc(hpx, gxqpy, interceptR, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(dkStarPx, gxqpy, interceptR, 0, 2 * Math.PI);
+            ctx.fill();
+          } else if (hoveredCp && !hoveredCp.isOdd) {
+            // Even p: horizontal across to Δk(x/h), then vertical down to x/h (red: showing where green goes)
+            const xHalf = hxInt / h;
+            const dkStar = slope !== 0 ? (xHalf - intercept) / slope : dkHi;
+            const dkStarPx = mapDK(dkStar);
+            const xHalfPy = mapX(xHalf);
+            ctx.strokeStyle = '#ef4444';
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([4, 4]);
+            ctx.beginPath();
+            ctx.moveTo(hpx, hpy);
+            ctx.lineTo(dkStarPx, hpy);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(dkStarPx, hpy);
+            ctx.lineTo(dkStarPx, xHalfPy);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.fillStyle = '#ef4444';
+            ctx.beginPath();
+            ctx.arc(dkStarPx, hpy, interceptR, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(dkStarPx, xHalfPy, interceptR, 0, 2 * Math.PI);
+            ctx.fill();
+          }
+        }
+
+        // --- Axis labels ---
+        ctx.fillStyle = '#666';
+        ctx.font = '11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText('\u0394k', this.width / 2, this.height - this.padding.bottom + 32);
+        ctx.save();
+        ctx.translate(13, this.padding.top + plotH / 2);
+        ctx.rotate(-Math.PI / 2);
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('x', 0, 0);
+        ctx.restore();
+
+        this.updateLegend(params, legendId);
+        this.updateSummary(params, summaryId);
+        this.updateInfo(infoId);
+      }
+
+      updateLegend(params, legendId) {
+        const div = this.doc.getElementById(legendId);
+        if (!div) return;
+        const { gamma, interceptStr } = params;
+        const slopeStr = gamma === 1 ? '1' : '1/\u03b3';
+        div.innerHTML = `
+          <div style="display:flex;align-items:center;gap:5px;">
+            <div style="width:20px;height:3px;background:#3b82f6;"></div>
+            <span style="color:#666;">x = ${interceptStr} + ${slopeStr}&middot;&Delta;k &nbsp; (&gamma;=${gamma})</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:5px;">
+            <div style="width:12px;height:12px;border-radius:50%;background:#ef4444;border:2px solid #fff;outline:1px solid #ef4444;"></div>
+            <span style="color:#666;">x, odd p (apply gx+q)</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:5px;">
+            <div style="width:12px;height:12px;border-radius:50%;background:#22c55e;border:2px solid #fff;outline:1px solid #22c55e;"></div>
+            <span style="color:#666;">x, even p (apply x/h) &mdash; hover to inspect</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:5px;">
+            <div style="width:6px;height:6px;border-radius:50%;background:#22c55e;margin:3px;"></div>
+            <span style="color:#666;">gx+q values (all lattice points)</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:5px;">
+            <div style="width:6px;height:6px;border-radius:50%;background:#ef4444;margin:3px;"></div>
+            <span style="color:#666;">h&middot;x values (all lattice points)</span>
+          </div>`;
+      }
+
+      updateInfo(infoId) {
+        const div = this.doc.getElementById(infoId);
+        if (!div) return;
+        if (this.hoveredN === null || !this.currentParams) {
+          div.innerHTML = '<span style="color:#aaa;">Hover over the plot to inspect a lattice point</span>';
+          return;
+        }
+        const { gamma, delta0, intercept, slope, q } = this.currentParams;
+        const hdk = delta0 + this.hoveredN * gamma;
+        const hxv = intercept + slope * hdk;
+        const hxInt = Math.round(hxv);
+        const cycleEl = this.currentCyclePoints
+          ? this.currentCyclePoints.find(cp => Math.abs(cp.dki - hdk) < 0.5 && cp.xi === hxInt)
+          : null;
+        const isCurrent = cycleEl && cycleEl.pi === (this.lastRenderArgs ? this.lastRenderArgs[0] : null);
+        const gVal = this.lastRenderArgs ? this.lastRenderArgs[1] : null;
+        const gxq = gVal !== null ? gVal * hxInt + q : null;
+        const elIsOdd = cycleEl ? cycleEl.isOdd : null;
+        const elColor = elIsOdd ? '#ef4444' : '#22c55e';
+        const parity = elIsOdd !== null ? (elIsOdd ? 'odd p' : 'even p') : '';
+        let html = `n = ${this.hoveredN} &nbsp;&nbsp; &Delta;k = ${hdk} &nbsp;&nbsp; x = ${hxInt}`;
+        if (gxq !== null) html += ` &nbsp;&nbsp; gx+q = ${gxq}`;
+        if (isCurrent) {
+          html += ` &nbsp;&nbsp; <strong style="color:${elColor};">&#9654; current (${parity})</strong>`;
+        } else if (cycleEl) {
+          html += ` &nbsp;&nbsp; <strong style="color:${elColor};">${parity}</strong>`;
+        }
+        div.innerHTML = html;
+      }
+
+      updateSummary(params, summaryId) {
+        const div = this.doc.getElementById(summaryId);
+        if (!div) return;
+        const { o, e, d, kHat, k, deltaK, deltaKMax, gamma, x0, q } = params;
+        div.textContent =
+          `o=${o}, e=${e} \u2502 d=${d} \u2502 k\u0302=${kHat} \u2502 k=${k} \u2502 \u0394k=${deltaK} \u2502 \u0394k_max(odd)=${Math.round(deltaKMax)} \u2502 \u03b3=${gamma} \u2502 x\u2080=${x0} \u2502 q=${q}`;
+      }
+    }
+
     // ========== Application Class ==========
     class Application {
       constructor() {
@@ -2311,6 +2810,8 @@
         this.distributeQKState = null; // State tracking for distribution algorithm
         this.statsPopup = null;
         this.entropyPopup = null;
+        this.xDeltaKGraph = null;
+        this.xDeltaKPopup = null;
       }
 
       initialize(o, e, g, h, q, x0) {
@@ -2333,6 +2834,9 @@
 
         const entropyCanvas = document.getElementById('entropy-canvas');
         this.entropyGraph = new EntropyGraph(entropyCanvas);
+
+        const xdkCanvas = document.getElementById('xdk-canvas');
+        this.xDeltaKGraph = new XDeltaKGraph(xdkCanvas);
 
         this.laws = new ConservationLaws(this.board);
 
@@ -3195,6 +3699,15 @@
         if (this.entropyGraph) {
           this.entropyGraph.render(this.history.initialState, this.history.actions, this.history.currentIndex);
         }
+        if (this.xDeltaKGraph && this.board && this.board.p) {
+          if (!this.xDeltaKGraph.mouseIsOver) {
+            try {
+              const params = this.xDeltaKGraph.computeParams(this.board.p, this.board.g, this.board.h);
+              this.xDeltaKGraph.hoveredN = Math.round((params.deltaK - params.delta0) / params.gamma);
+            } catch (e) { /* leave hoveredN unchanged */ }
+          }
+          this.xDeltaKGraph.render(this.board.p, this.board.g, this.board.h, 'xdk-legend', 'xdk-summary', 'xdk-info');
+        }
         this.updatePolynomialDisplay();
         this.updateControlPanel();
 
@@ -3286,6 +3799,74 @@
         this.updatePopups();
       }
 
+      popoutXDKGraph() {
+        if (this.xDeltaKPopup && !this.xDeltaKPopup.closed) {
+          this.xDeltaKPopup.focus();
+          return;
+        }
+
+        const features = 'width=900,height=500,left=100,top=100,resizable=yes,scrollbars=no,toolbar=no,menubar=no,location=no,status=no';
+        const popup = window.open('', 'XDeltaK_' + Date.now(), features);
+        this.xDeltaKPopup = popup;
+
+        popup.document.write(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>x vs \u0394k Plot</title>
+            <style>
+              * { box-sizing: border-box; }
+              body { margin: 0; padding: 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: white; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+              h2 { margin: 0 0 8px 0; color: #333; font-size: 15px; flex-shrink: 0; }
+              canvas { display: block; border: 1px solid #ddd; border-radius: 4px; background: white; flex-shrink: 0; }
+              #popup-xdk-legend { margin-top: 8px; font-size: 12px; display: flex; flex-wrap: wrap; gap: 12px; flex-shrink: 0; }
+              #popup-xdk-info { margin-top: 6px; font-size: 13px; color: #555; font-family: monospace; min-height: 1.5em; flex-shrink: 0; }
+              #popup-xdk-summary { margin-top: 4px; font-size: 12px; color: #666; flex-shrink: 0; }
+            </style>
+          </head>
+          <body>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+              <h2 style="margin:0;">x vs \u0394k Plot</h2>
+              <button id="popup-cycle-btn" onclick="window.opener && window.opener.toggleCycle()" style="font-size:13px;padding:4px 10px;cursor:pointer;">Cycle</button>
+            </div>
+            <canvas id="popup-xdk-canvas"></canvas>
+            <div id="popup-xdk-legend"></div>
+            <div id="popup-xdk-info"></div>
+            <div id="popup-xdk-summary"></div>
+          </body>
+          </html>
+        `);
+        popup.document.close();
+
+        const canvas = popup.document.getElementById('popup-xdk-canvas');
+        popup.xdkGraph = new XDeltaKGraph(canvas);
+        popup.xdkGraph.doc = popup.document;
+
+        const app = this;
+        const sizeCanvas = () => {
+          const bodyPad = 32;
+          const fixedOverhead = 130; // h2 + legend + info + summary
+          const w = Math.max(300, popup.innerWidth - bodyPad);
+          const h = Math.max(150, popup.innerHeight - fixedOverhead - bodyPad);
+          popup.xdkGraph.resize(w, h);
+        };
+
+        sizeCanvas();
+
+        popup.addEventListener('resize', () => {
+          sizeCanvas();
+          app.updatePopups();
+        });
+
+        // Sync cycle button label if cycling is already active
+        if (cycleInterval) {
+          const btn = popup.document.getElementById('popup-cycle-btn');
+          if (btn) btn.textContent = 'Stop';
+        }
+
+        this.updatePopups();
+      }
+
       updatePopups() {
         // Update stats popup
         if (this.statsPopup && !this.statsPopup.closed && this.statsPopup.graphCanvas) {
@@ -3325,6 +3906,18 @@
           // Restore original IDs
           this.entropyPopup.legendDiv.id = 'legend';
           this.entropyPopup.summaryDiv.id = 'summary';
+        }
+
+        // Update x vs delta-k popup
+        if (this.xDeltaKPopup && !this.xDeltaKPopup.closed && this.xDeltaKPopup.xdkGraph) {
+          if (this.board && this.board.p) {
+            const pg = this.xDeltaKPopup.xdkGraph;
+            try {
+              const params = pg.computeParams(this.board.p, this.board.g, this.board.h);
+              pg.hoveredN = Math.round((params.deltaK - params.delta0) / params.gamma);
+            } catch (e) { /* leave unchanged */ }
+            pg.render(this.board.p, this.board.g, this.board.h, 'popup-xdk-legend', 'popup-xdk-summary', 'popup-xdk-info');
+          }
         }
       }
 
@@ -4164,18 +4757,27 @@
       loadP(prevP);
     }
 
+    // Sync all cycle button labels
+    function updateAllCycleBtns(text) {
+      ['cycle-btn', 'xdk-cycle-btn'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) btn.textContent = text;
+      });
+      if (app && app.xDeltaKPopup && !app.xDeltaKPopup.closed) {
+        const btn = app.xDeltaKPopup.document.getElementById('popup-cycle-btn');
+        if (btn) btn.textContent = text;
+      }
+    }
+
     // Toggle cycle animation
     function toggleCycle() {
-      const cycleBtn = document.getElementById('cycle-btn');
       if (cycleInterval) {
-        // Stop cycling
         clearInterval(cycleInterval);
         cycleInterval = null;
-        cycleBtn.textContent = 'Cycle';
+        updateAllCycleBtns('Cycle');
       } else {
-        // Start cycling
         cycleInterval = setInterval(goToNextP, 1000);
-        cycleBtn.textContent = 'Stop';
+        updateAllCycleBtns('Stop');
       }
     }
 
@@ -4184,8 +4786,7 @@
       if (cycleInterval) {
         clearInterval(cycleInterval);
         cycleInterval = null;
-        const cycleBtn = document.getElementById('cycle-btn');
-        cycleBtn.textContent = 'Cycle';
+        updateAllCycleBtns('Cycle');
       }
     }
 
@@ -4324,6 +4925,13 @@
     // Pop-out buttons
     document.getElementById('popout-stats-btn').addEventListener('click', () => app.popoutStatsGraph());
     document.getElementById('popout-entropy-btn').addEventListener('click', () => app.popoutEntropyGraph());
+    document.getElementById('popout-xdk-btn').addEventListener('click', () => app.popoutXDKGraph());
+    document.getElementById('xdk-show-evens').addEventListener('change', (e) => {
+      if (app.xDeltaKGraph) {
+        app.xDeltaKGraph.showEvens = e.target.checked;
+        app.xDeltaKGraph._rerender();
+      }
+    });
 
     // Conservation law buttons
     document.getElementById('g-right-btn').addEventListener('click', () => {
@@ -4724,18 +5332,35 @@
         document.getElementById('init-btn').click();
       }
 
-      // Scroll to board after initialization
+      // Scroll to hash target or default to board after initialization
       setTimeout(() => {
-        const boardContainer = document.getElementById('board-container');
-        if (boardContainer) {
-          boardContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (window.location.hash === '#delta-k') {
+          const xdkPanel = document.getElementById('delta-k');
+          if (xdkPanel) xdkPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } else {
+          const boardContainer = document.getElementById('board-container');
+          if (boardContainer) boardContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
       }, 100);
+
+      // Section anchor: copy link to clipboard on click
+      document.getElementById('delta-k-anchor').addEventListener('click', (e) => {
+        e.preventDefault();
+        const url = window.location.href.split('#')[0] + '#delta-k';
+        navigator.clipboard.writeText(url).then(() => {
+          const el = e.currentTarget;
+          const orig = el.innerHTML;
+          el.innerHTML = '&#10003;';
+          el.style.opacity = '1';
+          setTimeout(() => { el.innerHTML = orig; el.style.opacity = ''; }, 1500);
+        }).catch(() => { window.location.hash = 'delta-k'; });
+      });
 
       // Add event listeners for cycle navigation buttons
       document.getElementById('prev-btn').addEventListener('click', goToPrevP);
       document.getElementById('next-btn').addEventListener('click', goToNextP);
       document.getElementById('cycle-btn').addEventListener('click', toggleCycle);
+      document.getElementById('xdk-cycle-btn').addEventListener('click', toggleCycle);
     });
   </script>
 </body>

@@ -76,6 +76,20 @@ All formats generate clickable links for easy sharing.
   - Updates during undo/redo and animation
   - Helps identify which operations are used most frequently
 
+- **x vs Δk Plot**: Interactive lattice visualisation showing every cycle element as a point on the affine line `x = k̂/γ + (1/γ)·Δk`:
+  - **Red dots** — odd p-value elements (gx+q is applied); **green dots** — even p-value elements (x/h is applied)
+  - **Small green dots** — gx+q values for every lattice point in the visible range
+  - **Small red dots** — h·x values for every lattice point in the visible range
+  - **Guidelines on hover**: dashed lines showing where the selected element goes next:
+    - Odd-p: vertical to gx+q, then horizontal to the destination lattice point (endpoint in green)
+    - Even-p: horizontal to Δk(x/h), then vertical down to x/h (endpoint in red)
+  - **Δk_max line**: labelled dashed line marking the upper bound on Δk for odd p-value elements
+  - **Evens checkbox**: show or hide even p-value elements
+  - **Cycle button**: animate through the cycle, auto-tracking the current element on the plot
+  - **Popout button**: open the plot in a resizable popup window with its own Cycle button
+  - Supports forced cycles (γ > 1) where Δk can extend into negative values
+  - Accessible via the `#delta-k` anchor link
+
 - **Entropy & Force Analysis Graph**: Dual-metric timeseries showing board evolution:
   - **Board Entropy** (purple line): Measures complexity using formula `log₂(|c_{j,i}| + 1) + (1 if occupied else 0) + i + (o-1-j)·log₂(3)` summed over all occupied cells
   - **Balanced Force** (green line): Sum of forces experienced by white pebbles `Σ c_{j,i}·g^(o-1-j)·h^i` (for c_{j,i} > 0), indicating magnitude of balanced forces
@@ -452,7 +466,10 @@ Contributions welcome! Areas of interest:
 
 Based on research exploring Collatz-type cycles through polynomial representations. The Othello board analogy provides an intuitive framework for understanding cycle structure and transformations.
 
-**Research Paper**: "Othello Board Analogy for Collatz-Type Cycles" by Jon Seymour
+**[Papers](https://github.com/wildducktheories/collatz-as-othello/tree/master/papers)**:
+
+- [Othello Board Analogy for Collatz-Type Cycles](https://github.com/wildducktheories/collatz-as-othello/tree/master/papers/othello.pdf) — introduces the board representation, conservation laws, and the polynomial identity underlying cycle existence
+- [x vs Δk: Cycle Elements on the Affine Lattice Line](https://github.com/wildducktheories/collatz-as-othello/tree/master/papers/x-vs-delta-k.pdf) — analyses the positions of cycle elements as integer lattice points on an affine line parameterised by Δk, including the Δk_max bound for odd p-value elements
 
 ## License
 
