@@ -1,1 +1,16 @@
 .private/**
+
+# macOS
+.DS_Store
+
+# Task cache
+.task/
+
+# LaTeX build products (keep .pdf)
+papers/*.aux
+papers/*.log
+papers/*.out
+papers/*.toc
+papers/*.synctex.gz
+papers/*.fls
+papers/*.fdb_latexmk

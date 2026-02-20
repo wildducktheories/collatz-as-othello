@@ -1,0 +1,44 @@
+version: '3'
+
+tasks:
+  pdf:
+    desc: Generate PDFs for all papers
+    deps:
+      - pdf:x-vs-delta-k
+      - pdf:othello
+
+  pdf:x-vs-delta-k:
+    desc: Generate PDF for x vs delta-k paper
+    dir: papers
+    sources:
+      - x-vs-delta-k.tex
+    generates:
+      - x-vs-delta-k.pdf
+    cmds:
+      - pdflatex -interaction=nonstopmode x-vs-delta-k.tex
+      - pdflatex -interaction=nonstopmode x-vs-delta-k.tex
+    silent: false
+
+  pdf:othello:
+    desc: Generate PDF for othello paper
+    dir: papers
+    sources:
+      - othello.tex
+    generates:
+      - othello.pdf
+    cmds:
+      - pdflatex -interaction=nonstopmode othello.tex
+      - pdflatex -interaction=nonstopmode othello.tex
+    silent: false
+
+  clean:
+    desc: Clean LaTeX auxiliary files
+    dir: papers
+    cmds:
+      - rm -f *.aux *.log *.out *.toc *.synctex.gz
+
+  clean:all:
+    desc: Clean all generated files including PDFs
+    dir: papers
+    cmds:
+      - rm -f *.aux *.log *.out *.toc *.synctex.gz *.pdf
