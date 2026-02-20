@@ -1,0 +1,299 @@
+\documentclass[12pt]{article}
+\usepackage{amsmath, amssymb, amsfonts, amsthm}
+\usepackage{hyperref}
+\usepackage{geometry}
+\geometry{margin=1in}
+
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{corollary}[theorem]{Corollary}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{example}[theorem]{Example}
+\theoremstyle{remark}
+\newtheorem{remark}[theorem]{Remark}
+
+\title{Visualizing Collatz Cycles on the $x$ vs.\ $\Delta k$ Plot}
+\author{Jon Seymour}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Every Collatz-like cycle satisfies the identity $x \cdot d = q \cdot k$, where
+$d = h^e - g^o$ is determined solely by the cycle's step counts and base parameters,
+$k$ is a monomial sum encoding the cycle's internal structure, and $q$ is a reduced
+cofactor.  We introduce a reference value $\hat{k} = (g^o - h^o)/(g-h)$ representing the
+minimum achievable $k$ for a cycle with $o$ odd steps, and write $k = \hat{k} + \Delta k$
+with $\Delta k \geq 0$.  Substituting into the cycle identity yields an affine equation
+expressing $x$ as a linear function of $\Delta k$.  We derive tight bounds
+$0 \leq \Delta k \leq \Delta k_{\max}$, where
+$\Delta k_{\max} = (h^{e-o} - 1)(\hat{k} - g^{o-1})$, and observe that every odd-step
+cycle element must correspond to an integer lattice point on this line within those bounds.  The
+resulting $x$ vs.\ $\Delta k$ plot provides a compact visualization of the solution space
+for cycles of a given type $(g, h, o, e)$.
+\end{abstract}
+
+\section{Introduction}
+
+A \emph{Collatz-like} dynamical system is defined by two positive integers $g$ (odd) and
+$h \geq 2$ with $\gcd(g, h) = 1$.  The map $x \mapsto (gx + 1)/h^{v_h(gx+1)}$ is applied
+to odd positive integers, where $v_h(n)$ denotes the largest power of $h$ dividing $n$.
+The classical $3x+1$ system corresponds to $g = 3$, $h = 2$.  A \emph{cycle} is a finite
+set of odd integers $\{x_1, x_2, \ldots, x_o\}$ closed under this map, with each $x_j$
+contributing one odd step and $e_j \geq 1$ even steps before reaching $x_{j+1}$.
+
+It is well known that every such cycle satisfies the polynomial identity
+\begin{equation}\label{eq:cycle-identity}
+  x \cdot d(g, h) = q \cdot k(g, h),
+\end{equation}
+where $x$ is any element of the cycle, and $d$, $k$, and $q$ are derived quantities
+defined in Section~\ref{sec:background}.
+
+The central observation of this paper is that, for fixed $(g, h, o, e)$, the identity
+\eqref{eq:cycle-identity} defines an \emph{affine function} of a deviation parameter
+$\Delta k = k - \hat{k}$, where $\hat{k}$ is the minimum possible value of $k$ for a cycle
+with $o$ odd steps.  All valid cycles must therefore appear as integer lattice points on a
+single line in the $(\Delta k, x)$ plane, within a computable interval of $\Delta k$ values.
+This gives rise to the \emph{$x$ vs.\ $\Delta k$ plot}: a visualization that collapses the
+$o$-dimensional family of cycle configurations onto a one-dimensional affine constraint.
+
+\section{Background}\label{sec:background}
+
+Fix $g$ (odd, $g \geq 3$) and $h \geq 2$ with $\gcd(g, h) = 1$.  Let $o \geq 1$ denote
+the number of odd steps in a cycle and $e \geq 1$ the total number of even steps, with the
+even steps distributed as $e_1, e_2, \ldots, e_o \geq 1$ (so $e = \sum_{j=1}^o e_j$).
+
+\subsection{The Polynomial Representation}
+
+Following \cite{othello-board}, a cycle is encoded by a positive integer $p$ whose binary
+structure records the sequence of odd and even steps.  Parsing the binary expansion of $p$
+from the least-significant bit yields $o$ monomials.  The $j$-th monomial (for
+$j = 0, 1, \ldots, o-1$) has $g$-exponent $o - 1 - j$ and $h$-exponent
+\begin{equation}
+  i_j = \sum_{l=1}^{j} e_l,
+\end{equation}
+the cumulative even-step count before the $(j+1)$-th odd step.  In particular,
+\begin{equation}\label{eq:isequence}
+  0 = i_0 < i_1 < \cdots < i_{o-1} < e,
+\end{equation}
+where $i_0 = 0$ because every cycle element is odd (no even steps precede the first odd
+step in any traversal), and $i_{o-1} = e - e_o < e$ because at least one even step $e_o
+\geq 1$ follows the last odd step.
+
+\begin{definition}
+  The \emph{monomial sum} of a cycle is
+  \begin{equation}
+    k = k(g, h) = \sum_{j=0}^{o-1} g^{o-1-j}\, h^{i_j}.
+  \end{equation}
+  The \emph{difference polynomial} is
+  \begin{equation}
+    d = d(g, h) = h^e - g^o.
+  \end{equation}
+\end{definition}
+
+\begin{remark}
+  For a cycle to have positive elements we need $d > 0$, i.e.\ $h^e > g^o$, equivalently
+  $e > o \log_h g$.  This requires $e > o$ when $g > h$.
+\end{remark}
+
+\begin{definition}
+  Given $k$ and $d$ as above, set $\gamma = \gcd(k, d)$ and define
+  \begin{equation}
+    x_0 = \frac{k}{\gamma}, \qquad q = \frac{d}{\gamma}.
+  \end{equation}
+\end{definition}
+
+The cycle identity \eqref{eq:cycle-identity} then holds with $x = x_0$:
+\begin{equation*}
+  x_0 \cdot d = \frac{k}{\gamma} \cdot d = k \cdot \frac{d}{\gamma} = q \cdot k. \qquad\checkmark
+\end{equation*}
+
+\section{The Reference Value $\hat{k}$ and the Deviation $\Delta k$}
+
+\begin{definition}
+  The \emph{reference monomial sum} for a cycle with $o$ odd steps is
+  \begin{equation}
+    \hat{k} = \hat{k}(g, h, o) = \frac{g^o - h^o}{g - h} = \sum_{j=0}^{o-1} g^{o-1-j}\, h^j.
+  \end{equation}
+  For $g - h = 1$ (in particular for $g = 3$, $h = 2$) this simplifies to
+  $\hat{k} = g^o - h^o$.
+\end{definition}
+
+The value $\hat{k}$ is realised by the configuration $i_j = j$ for all $j$, i.e.\ the
+monomials occupy consecutive rows $0, 1, \ldots, o-1$.  This configuration corresponds to
+cycles in which every odd step except the last is followed by exactly one even step.  We
+now show this is the minimum possible $k$.
+
+\begin{proposition}\label{prop:khat-minimum}
+  For any valid cycle with $o$ odd steps, $k \geq \hat{k}$, with equality if and only if
+  $i_j = j$ for all $j = 0, 1, \ldots, o-1$.
+\end{proposition}
+
+\begin{proof}
+  Since $i_0 = 0$ and $i_0 < i_1 < \cdots < i_{o-1}$, we have $i_j \geq j$ for all $j$.
+  As $h \geq 2$, each term satisfies $g^{o-1-j}\,h^{i_j} \geq g^{o-1-j}\,h^j$, with
+  equality iff $i_j = j$.  Summing over $j$ gives $k \geq \hat{k}$.
+\end{proof}
+
+\begin{definition}
+  The \emph{deviation} is $\Delta k = k - \hat{k} \geq 0$.
+\end{definition}
+
+\section{The Affine Equation and Its Bounds}
+
+\subsection{The Affine Equation}
+
+Substituting $k = \hat{k} + \Delta k$ into the cycle identity $x \cdot d = q \cdot k$
+yields
+\begin{equation}\label{eq:affine}
+  x = \underbrace{\frac{q\,\hat{k}}{d}}_{\text{intercept}} +
+      \underbrace{\frac{q}{d}}_{\text{slope}}\,\Delta k.
+\end{equation}
+Thus, for fixed $(g, h, o, e)$ — and hence fixed $d$, $\hat{k}$, and $q$ — the cycle
+element $x$ is an affine function of $\Delta k$ with slope $q/d$ and intercept
+$q\hat{k}/d$.
+
+\subsection{Upper Bound on $\Delta k$}
+
+\begin{proposition}\label{prop:deltamax}
+  For any valid cycle with $o$ odd steps and $e$ even steps,
+  \begin{equation}\label{eq:deltamax}
+    \Delta k \leq \Delta k_{\max} = \bigl(h^{e-o} - 1\bigr)\bigl(\hat{k} - g^{o-1}\bigr).
+  \end{equation}
+\end{proposition}
+
+\begin{proof}
+  We maximise $k$ subject to $i_0 = 0$ and $0 = i_0 < i_1 < \cdots < i_{o-1} < e$.
+  The maximum is attained by setting $i_0 = 0$ and packing the remaining monomials
+  ($j = 1, \ldots, o-1$) into the highest possible consecutive rows ending at $e - 1$:
+  \begin{equation*}
+    i_j = e - o + j, \quad j = 1, \ldots, o-1.
+  \end{equation*}
+  (Note $i_1 = e - o + 1 > 0$ since $e > o$, and $i_{o-1} = e - 1 < e$.)  This gives
+  \begin{align*}
+    k_{\max} &= g^{o-1} \cdot h^0 + \sum_{j=1}^{o-1} g^{o-1-j}\, h^{e-o+j} \\
+             &= g^{o-1} + h^{e-o+1} \sum_{j=1}^{o-1} g^{o-1-j}\, h^{j-1} \\
+             &= g^{o-1} + h^{e-o+1} \cdot \frac{\hat{k} - g^{o-1}}{h},
+  \end{align*}
+  where the last step uses the identity $\hat{k} = g^{o-1} + h \sum_{j=1}^{o-1}
+  g^{o-1-j} h^{j-1}$.  Therefore
+  \begin{equation*}
+    \Delta k_{\max} = k_{\max} - \hat{k}
+    = g^{o-1} + h^{e-o}\,(\hat{k} - g^{o-1}) - \hat{k}
+    = (h^{e-o} - 1)(\hat{k} - g^{o-1}). \qedhere
+  \end{equation*}
+\end{proof}
+
+\begin{remark}
+  For $o = 1$ we have $\hat{k} = 1 = g^{o-1}$, so $\Delta k_{\max} = 0$: there is only
+  one monomial, pinned at $i_0 = 0$, and $k = 1$ always.
+\end{remark}
+
+\begin{remark}
+  The bound $\Delta k \leq \Delta k_{\max}$ applies specifically to \emph{odd} cycle
+  elements, i.e.\ those whose $p$-value is odd (equivalently, elements $x$ to which the
+  operation $x \mapsto gx + q$ is applied).  In forced cycles (where $\gamma > 1$), even
+  $p$-value elements (halving steps) may possess $\Delta k$ values that fall outside the
+  interval $[0, \Delta k_{\max}]$; the bound is not intended to constrain them.
+\end{remark}
+
+\subsection{Summary of Bounds}
+
+Combining Propositions \ref{prop:khat-minimum} and \ref{prop:deltamax}:
+\begin{equation}\label{eq:bounds}
+  0 \leq \Delta k \leq (h^{e-o} - 1)\,(\hat{k} - g^{o-1}).
+\end{equation}
+Substituting into \eqref{eq:affine}, the cycle element $x$ is constrained to the interval
+\begin{equation}
+  \frac{q\,\hat{k}}{d} \;\leq\; x \;\leq\;
+  \frac{q\,\hat{k}}{d} + \frac{q}{d}\,(h^{e-o}-1)(\hat{k}-g^{o-1}).
+\end{equation}
+
+\section{The $x$ vs.\ $\Delta k$ Plot}
+
+The affine constraint \eqref{eq:affine} and the bounds \eqref{eq:bounds} together define a
+line segment in the $(\Delta k, x)$ plane.  The \emph{$x$ vs.\ $\Delta k$ plot} for a
+given $(g, h, o, e)$ displays this line segment together with the integer lattice points
+it contains, each of which is a candidate cycle element.
+
+\begin{definition}
+  A \emph{lattice point} on the $x$ vs.\ $\Delta k$ line is a pair
+  $(\Delta k, x) \in \mathbb{Z}_{\geq 0} \times \mathbb{Z}_{>0}$ satisfying
+  \eqref{eq:affine} and \eqref{eq:bounds}.
+\end{definition}
+
+\begin{remark}
+  Not every lattice point corresponds to an actual cycle: the value $x = k/\gamma$ must be
+  a positive odd integer, and the corresponding $p$ must encode a valid binary cycle
+  structure.  The plot therefore provides necessary but not sufficient conditions for a
+  cycle.
+\end{remark}
+
+The significance of the plot is as follows.  For a fixed $(g, h, o, e)$, the slope $q/d$
+and intercept $q\hat{k}/d$ are determined.  Any cycle of that type must lie on the line.
+The finite interval $[0, \Delta k_{\max}]$ bounds how far an odd-step cycle element can
+deviate from the minimum-$k$ configuration.  Cycles with small $\Delta k$ are ``close to natural'' in the
+sense that their monomials are spread uniformly across low rows $0, 1, \ldots, o-1$;
+cycles with $\Delta k$ near $\Delta k_{\max}$ have their free monomials packed near row
+$e - 1$.
+
+\begin{example}[The $5x+1$ cycle with $x_0 = 17$]
+  The cycle $17 \to 43 \to 27 \to 17$ under the $5x+1$ map ($g = 5$, $h = 2$) has
+  $o = 3$ odd steps and even-step counts $e_1 = 1$, $e_2 = 3$, $e_3 = 3$, giving
+  $e = 7$.  The monomial $h$-exponents are $i_0 = 0$, $i_1 = 1$, $i_2 = 4$, so
+  \begin{align*}
+    k &= 5^2 \cdot 2^0 + 5^1 \cdot 2^1 + 5^0 \cdot 2^4 = 25 + 10 + 16 = 51, \\
+    d &= 2^7 - 5^3 = 128 - 125 = 3, \\
+    \gamma &= \gcd(51, 3) = 3, \quad x_0 = 51/3 = 17, \quad q = 3/3 = 1.
+  \end{align*}
+  The reference value and deviation are
+  \begin{align*}
+    \hat{k} &= (5^3 - 2^3)/(5-2) = 117/3 = 39, \\
+    \Delta k &= 51 - 39 = 12.
+  \end{align*}
+  The upper bound is
+  \begin{equation*}
+    \Delta k_{\max} = (2^{7-3} - 1)(39 - 25) = 15 \times 14 = 210.
+  \end{equation*}
+  The affine line has slope $q/d = 1/3$ and intercept $q\hat{k}/d = 39/3 = 13$, giving
+  \begin{equation*}
+    x = 13 + \tfrac{1}{3}\,\Delta k.
+  \end{equation*}
+  At $\Delta k = 12$: $x = 13 + 4 = 17$. \checkmark\quad The cycle lies well within
+  $[0, 210]$.  Integer lattice points on this line require $\Delta k \equiv 0 \pmod{3}$.
+\end{example}
+
+\section{Conclusion}
+
+We have shown that the cycle identity $x \cdot d = q \cdot k$ can be rewritten as the
+affine equation $x = q\hat{k}/d + (q/d)\,\Delta k$, where $\Delta k = k - \hat{k}$
+measures the deviation of the monomial sum from its minimum value
+$\hat{k} = (g^o - h^o)/(g-h)$.  The key structural constraint is that, since all cycle
+elements are odd, the first monomial $h$-exponent is always $i_0 = 0$, while the last is
+at most $i_{o-1} = e - 1$.  This pins the minimum at $\hat{k}$ and yields the tight upper
+bound $\Delta k_{\max} = (h^{e-o} - 1)(\hat{k} - g^{o-1})$.
+
+The $x$ vs.\ $\Delta k$ plot visualises this constraint: all cycles of a given type
+$(g, h, o, e)$ collapse onto a single line, and valid cycle elements must be integer
+lattice points within the computable bounds.  This provides an efficient way to enumerate
+candidate cycles and to understand the solution space of the Collatz-like cycle equation.
+
+\begin{thebibliography}{9}
+
+\bibitem{othello-board}
+  J.~Seymour,
+  \emph{Othello Board Analogy for Collatz-Type Cycles},
+  unpublished manuscript, 2025.
+
+\bibitem{affine-blocks}
+  J.~Seymour,
+  \emph{Affine Block Structures in Collatz Sequences},
+  unpublished manuscript, 2025.
+
+\end{thebibliography}
+
+\end{document}
