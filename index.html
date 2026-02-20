@@ -2330,6 +2330,7 @@
         this.height = canvas.height;
         this.padding = { top: 20, right: 20, bottom: 50, left: 60 };
         this.hoveredN = null;
+        this.lastP = null;
         this.mouseIsOver = false;
         this.currentParams = null;
         this.currentCyclePoints = null;
@@ -2352,6 +2353,8 @@
           this.canvas.focus();
         });
         this.canvas.addEventListener('keydown', (evt) => {
+          if (evt.key === 'n') { evt.preventDefault(); goToNextP(); return; }
+          if (evt.key === 'p') { evt.preventDefault(); goToPrevP(); return; }
           if (evt.key !== 'ArrowLeft' && evt.key !== 'ArrowRight' && evt.key !== ' ') return;
           evt.preventDefault();
           if (!this.currentParams) return;
@@ -2476,6 +2479,12 @@
         const { o, e, k, d, kHat, gamma, x0, q, deltaK, deltaKMax, slope, intercept, delta0 } = params;
         this.currentParams = params;
         this.lastRenderArgs = [p, g, h, legendId, summaryId, infoId];
+
+        // Auto-track current element when p changes (n/p keys, cycle animation, link clicks)
+        if (p !== this.lastP) {
+          this.lastP = p;
+          this.hoveredN = Math.round((deltaK - delta0) / gamma);
+        }
 
         if (d <= 0) {
           ctx.fillStyle = '#999';
@@ -2632,28 +2641,32 @@
         ctx.fill();
         ctx.stroke();
 
-        // --- gx+q and x/h dots: one of each for every lattice point in range ---
-        const nFirst = Math.ceil((dkLo - delta0) / gamma);
-        const nLast = Math.floor((dkHi - delta0) / gamma);
+        // --- gx+q and h*x dots: one per lattice point, only when individually visible ---
+        // Skip entirely if lattice points are sub-pixel (would cause millions of iterations).
+        const pixelsPerLattice = dkRange > 0 ? plotW * gamma / dkRange : plotW;
+        if (pixelsPerLattice >= 1) {
+          const nFirst = Math.ceil((dkLo - delta0) / gamma);
+          const nLast = Math.floor((dkHi - delta0) / gamma);
 
-        // gx+q dots (green — destination of odd/red elements)
-        ctx.fillStyle = '#22c55e';
-        for (let n = nFirst; n <= nLast; n++) {
-          const dk = delta0 + n * gamma;
-          const xv = intercept + slope * dk;
-          ctx.beginPath();
-          ctx.arc(mapDK(dk), mapX(g * xv + q), 1, 0, 2 * Math.PI);
-          ctx.fill();
-        }
+          // gx+q dots (green — destination of odd/red elements)
+          ctx.fillStyle = '#22c55e';
+          for (let n = nFirst; n <= nLast; n++) {
+            const dk = delta0 + n * gamma;
+            const xv = intercept + slope * dk;
+            ctx.beginPath();
+            ctx.arc(mapDK(dk), mapX(g * xv + q), 1, 0, 2 * Math.PI);
+            ctx.fill();
+          }
 
-        // h*x dots (red — destination of even/green elements)
-        ctx.fillStyle = '#ef4444';
-        for (let n = nFirst; n <= nLast; n++) {
-          const dk = delta0 + n * gamma;
-          const xv = intercept + slope * dk;
-          ctx.beginPath();
-          ctx.arc(mapDK(dk), mapX(h * xv), 1, 0, 2 * Math.PI);
-          ctx.fill();
+          // h*x dots (red — destination of even/green elements)
+          ctx.fillStyle = '#ef4444';
+          for (let n = nFirst; n <= nLast; n++) {
+            const dk = delta0 + n * gamma;
+            const xv = intercept + slope * dk;
+            ctx.beginPath();
+            ctx.arc(mapDK(dk), mapX(h * xv), 1, 0, 2 * Math.PI);
+            ctx.fill();
+          }
         }
 
         // --- Hover indicator ---
@@ -2870,8 +2883,10 @@
         const entropyCanvas = document.getElementById('entropy-canvas');
         this.entropyGraph = new EntropyGraph(entropyCanvas);
 
-        const xdkCanvas = document.getElementById('xdk-canvas');
-        this.xDeltaKGraph = new XDeltaKGraph(xdkCanvas);
+        if (!this.xDeltaKGraph) {
+          const xdkCanvas = document.getElementById('xdk-canvas');
+          this.xDeltaKGraph = new XDeltaKGraph(xdkCanvas);
+        }
 
         this.laws = new ConservationLaws(this.board);
 
