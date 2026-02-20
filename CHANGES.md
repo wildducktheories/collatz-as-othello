@@ -19,10 +19,10 @@ where `k̂` is the minimum k-value in the cycle, `γ = gcd(k, d)`, and `Δk = k 
 - Green dots — even p-value elements (the x/h step is applied)
 - The current element is drawn larger with a white ring
 
-**Reference series (informational, one dot per lattice point)**
+**Reference lines**
 
-- Small green dots — gx+q values across all lattice points in the visible range
-- Small red dots — h·x values across all lattice points in the visible range
+- Green line — gx+q, derived from the affine identity: (g·intercept + q) + g·slope·Δk
+- Red line — h·x, derived from the affine identity: h·intercept + h·slope·Δk
 
 **Guidelines on hover**
 

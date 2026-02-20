@@ -2641,33 +2641,23 @@
         ctx.fill();
         ctx.stroke();
 
-        // --- gx+q and h*x dots: one per lattice point, only when individually visible ---
-        // Skip entirely if lattice points are sub-pixel (would cause millions of iterations).
-        const pixelsPerLattice = dkRange > 0 ? plotW * gamma / dkRange : plotW;
-        if (pixelsPerLattice >= 1) {
-          const nFirst = Math.ceil((dkLo - delta0) / gamma);
-          const nLast = Math.floor((dkHi - delta0) / gamma);
+        // --- gx+q and h*x reference lines ---
+        // Both are linear in Δk: substitute x = intercept + slope·Δk into each expression.
+        // gx+q = g·intercept + q + g·slope·Δk  (green — destination of odd/red elements)
+        ctx.strokeStyle = '#22c55e';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(mapDK(dkLo), mapX(gxqAtLo));
+        ctx.lineTo(mapDK(dkHi), mapX(gxqAtHi));
+        ctx.stroke();
 
-          // gx+q dots (green — destination of odd/red elements)
-          ctx.fillStyle = '#22c55e';
-          for (let n = nFirst; n <= nLast; n++) {
-            const dk = delta0 + n * gamma;
-            const xv = intercept + slope * dk;
-            ctx.beginPath();
-            ctx.arc(mapDK(dk), mapX(g * xv + q), 1, 0, 2 * Math.PI);
-            ctx.fill();
-          }
-
-          // h*x dots (red — destination of even/green elements)
-          ctx.fillStyle = '#ef4444';
-          for (let n = nFirst; n <= nLast; n++) {
-            const dk = delta0 + n * gamma;
-            const xv = intercept + slope * dk;
-            ctx.beginPath();
-            ctx.arc(mapDK(dk), mapX(h * xv), 1, 0, 2 * Math.PI);
-            ctx.fill();
-          }
-        }
+        // h·x = h·intercept + h·slope·Δk  (red — destination of even/green elements)
+        ctx.strokeStyle = '#ef4444';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(mapDK(dkLo), mapX(hxAtLo));
+        ctx.lineTo(mapDK(dkHi), mapX(hxAtHi));
+        ctx.stroke();
 
         // --- Hover indicator ---
         if (this.hoveredN !== null) {
@@ -2789,12 +2779,12 @@
             <span style="color:#666;">x, even p (apply x/h) &mdash; hover to inspect</span>
           </div>
           <div style="display:flex;align-items:center;gap:5px;">
-            <div style="width:6px;height:6px;border-radius:50%;background:#22c55e;margin:3px;"></div>
-            <span style="color:#666;">gx+q values (all lattice points)</span>
+            <div style="width:20px;height:2px;background:#22c55e;margin:5px 0;"></div>
+            <span style="color:#666;">gx+q = (g&middot;intercept+q) + g&middot;slope&middot;&Delta;k</span>
           </div>
           <div style="display:flex;align-items:center;gap:5px;">
-            <div style="width:6px;height:6px;border-radius:50%;background:#ef4444;margin:3px;"></div>
-            <span style="color:#666;">h&middot;x values (all lattice points)</span>
+            <div style="width:20px;height:2px;background:#ef4444;margin:5px 0;"></div>
+            <span style="color:#666;">h&middot;x = h&middot;intercept + h&middot;slope&middot;&Delta;k</span>
           </div>`;
       }
 
