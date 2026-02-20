@@ -616,7 +616,7 @@
           <button class="btn-secondary" id="popout-xdk-btn" title="Pop out to separate window (exit fullscreen first)" style="font-size: 16px; padding: 4px 8px; min-width: 32px;">&#x29c9;</button>
         </div>
       </div>
-      <canvas id="xdk-canvas" width="700" height="300" style="border: 1px solid #ddd; border-radius: 4px; background: white;"></canvas>
+      <canvas id="xdk-canvas" width="700" height="300" tabindex="0" style="border: 1px solid #ddd; border-radius: 4px; background: white; outline: none;"></canvas>
       <div id="xdk-legend" style="margin-top: 10px; font-size: 12px; display: flex; flex-wrap: wrap; gap: 15px;"></div>
       <div id="xdk-info" style="margin-top: 8px; font-size: 13px; color: #555; font-family: monospace; min-height: 1.5em;"></div>
       <div id="xdk-summary" style="margin-top: 6px; font-size: 13px; color: #666;"></div>
@@ -2347,7 +2347,42 @@
       }
 
       _setupEvents() {
-        this.canvas.addEventListener('mouseenter', () => { this.mouseIsOver = true; });
+        this.canvas.addEventListener('mouseenter', () => {
+          this.mouseIsOver = true;
+          this.canvas.focus();
+        });
+        this.canvas.addEventListener('keydown', (evt) => {
+          if (evt.key !== 'ArrowLeft' && evt.key !== 'ArrowRight' && evt.key !== ' ') return;
+          evt.preventDefault();
+          if (!this.currentParams) return;
+          const { gamma, delta0, dkLo, dkHi } = this.currentParams;
+          const nMin = Math.ceil((dkLo - delta0) / gamma);
+          const nMax = Math.floor((dkHi - delta0) / gamma);
+          if (evt.key === ' ') {
+            // Snap to the cycle point whose Δk is closest to the current hovered position
+            if (!this.currentCyclePoints || this.currentCyclePoints.length === 0) return;
+            const currentDk = delta0 + (this.hoveredN ?? Math.round(((this.currentParams.deltaK || 0) - delta0) / gamma)) * gamma;
+            let bestN = this.hoveredN;
+            let bestDist = Infinity;
+            for (const cp of this.currentCyclePoints) {
+              const cpN = Math.round((cp.dki - delta0) / gamma);
+              const dist = Math.abs(cp.dki - currentDk);
+              if (dist < bestDist) { bestDist = dist; bestN = cpN; }
+            }
+            if (bestN !== this.hoveredN) {
+              this.hoveredN = bestN;
+              this._rerender();
+            }
+          } else {
+            const current = this.hoveredN ?? Math.round(((this.currentParams.deltaK || 0) - delta0) / gamma);
+            const next = evt.key === 'ArrowLeft' ? current - 1 : current + 1;
+            const clamped = Math.max(nMin, Math.min(nMax, next));
+            if (clamped !== this.hoveredN) {
+              this.hoveredN = clamped;
+              this._rerender();
+            }
+          }
+        });
         this.canvas.addEventListener('mousemove', (evt) => {
           if (!this.currentParams) return;
           const rect = this.canvas.getBoundingClientRect();
@@ -3829,7 +3864,7 @@
               <h2 style="margin:0;">x vs \u0394k Plot</h2>
               <button id="popup-cycle-btn" onclick="window.opener && window.opener.toggleCycle()" style="font-size:13px;padding:4px 10px;cursor:pointer;">Cycle</button>
             </div>
-            <canvas id="popup-xdk-canvas"></canvas>
+            <canvas id="popup-xdk-canvas" tabindex="0" style="outline:none;"></canvas>
             <div id="popup-xdk-legend"></div>
             <div id="popup-xdk-info"></div>
             <div id="popup-xdk-summary"></div>
