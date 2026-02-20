@@ -45,6 +45,26 @@ p-value elements may fall outside this bound; forced cycle elements (where p mod
 - **Popout button** — opens the plot in a resizable popup window with its own Cycle button
 - **#delta-k anchor** — deep-link directly to the x vs Δk section
 
+**Keyboard shortcuts (canvas must be focused — hover over the plot)**
+
+- `n` / `p` — navigate to the next / previous p-value in the cycle
+- `←` / `→` — step hoveredN one lattice point left or right
+- `Space` — snap to the nearest cycle element
+
+Guidelines auto-track the current element whenever p changes (via n/p
+keys, the Cycle animation, or an x-cycle link click).
+
+**Bug fixes**
+
+- Reference-dot loops (gx+q and h·x) are now skipped when individual
+  lattice points are sub-pixel wide, preventing browser hangs on cycles
+  with large Δk ranges (e.g. p=172705, g=3, h=2 has Δk_max = 13082)
+- `XDeltaKGraph` is now created only once; previously it was re-created
+  on every `app.initialize()` call, causing event-listener count to grow
+  as 4·5^k after k keypresses and freezing the browser
+- The x vs Δk plot is no longer disabled when d < 0; only d = 0
+  (undefined slope) is treated as degenerate
+
 ### Papers
 
 - Added `papers/othello.tex` — "Othello Board Analogy for Collatz-Type Cycles"
