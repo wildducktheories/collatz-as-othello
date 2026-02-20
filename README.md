@@ -87,7 +87,7 @@ All formats generate clickable links for easy sharing.
   - **Evens checkbox**: show or hide even p-value elements
   - **Cycle button**: animate through the cycle, auto-tracking the current element on the plot
   - **Popout button**: open the plot in a resizable popup window with its own Cycle button
-  - Supports forced cycles (γ > 1) where Δk can extend into negative values
+  - Supports cycles with negative Δk values (e.g. forced cycle elements where p mod 2 ≠ x mod 2)
   - Accessible via the `#delta-k` anchor link
 
 - **Entropy & Force Analysis Graph**: Dual-metric timeseries showing board evolution:

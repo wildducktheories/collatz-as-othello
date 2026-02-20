@@ -196,9 +196,11 @@ $q\hat{k}/d$.
 \begin{remark}
   The bound $\Delta k \leq \Delta k_{\max}$ applies specifically to \emph{odd} cycle
   elements, i.e.\ those whose $p$-value is odd (equivalently, elements $x$ to which the
-  operation $x \mapsto gx + q$ is applied).  In forced cycles (where $\gamma > 1$), even
-  $p$-value elements (halving steps) may possess $\Delta k$ values that fall outside the
-  interval $[0, \Delta k_{\max}]$; the bound is not intended to constrain them.
+  operation $x \mapsto gx + q$ is applied).  Even $p$-value elements (halving steps) may
+  possess $\Delta k$ values that fall outside the interval $[0, \Delta k_{\max}]$; the
+  bound is not intended to constrain them.  In particular, \emph{forced} cycle elements
+  --- those for which $p \bmod 2 \neq x \bmod 2$ --- are even $p$-value elements whose
+  $x$-value is odd, and their $\Delta k$ values need not respect this bound.
 \end{remark}
 
 \subsection{Summary of Bounds}

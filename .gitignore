@@ -3,6 +3,9 @@
 # macOS
 .DS_Store
 
+# Scratch notes
+scratch/
+
 # Task cache
 .task/
 

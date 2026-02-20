@@ -36,7 +36,7 @@ When a cycle element is selected, dashed guidelines show where it is headed next
 **Δk_max reference line**
 
 A labelled dashed line marks the upper bound on Δk for odd p-value elements.  Even
-p-value elements in forced cycles (γ > 1) may fall outside this bound.
+p-value elements may fall outside this bound; forced cycle elements (where p mod 2 ≠ x mod 2) need not respect it.
 
 **Controls**
 
