@@ -5346,7 +5346,10 @@
       // Section anchor: copy link to clipboard on click
       document.getElementById('delta-k-anchor').addEventListener('click', (e) => {
         e.preventDefault();
-        const url = window.location.href.split('#')[0] + '#delta-k';
+        const _dkParams = new URLSearchParams(window.location.search);
+        _dkParams.set('g', parseInt(document.getElementById('input-g').value));
+        _dkParams.set('h', parseInt(document.getElementById('input-h').value));
+        const url = window.location.pathname + '?' + _dkParams.toString() + '#delta-k';
         navigator.clipboard.writeText(url).then(() => {
           const el = e.currentTarget;
           const orig = el.innerHTML;
