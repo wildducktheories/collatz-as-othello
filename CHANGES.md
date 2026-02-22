@@ -42,6 +42,8 @@ p-value elements may fall outside this bound; forced cycle elements (where p mod
 
 - **Evens checkbox** — show or hide even p-value elements
 - **Cycle button** — animates through the cycle, auto-tracking the current element
+- **GIF button** — downloads an animated GIF of one full cycle; a delay input (ms)
+  next to the button controls the per-frame delay (default 800 ms)
 - **Popout button** — opens the plot in a resizable popup window with its own Cycle button
 - **#delta-k anchor** — deep-link directly to the x vs Δk section
 
@@ -64,6 +66,25 @@ keys, the Cycle animation, or an x-cycle link click).
   as 4·5^k after k keypresses and freezing the browser
 - The x vs Δk plot is no longer disabled when d < 0; only d = 0
   (undefined slope) is treated as degenerate
+- GIF frames previously showed only axis-tick labels with no stroked or
+  filled shapes; two separate bugs were present:
+  1. **LZW code-size sync bug** — the encoder bumped `cs` when
+     `next === (1 << cs)` (same threshold as the decoder), but the encoder
+     is always one table entry ahead of the decoder due to the KwKwK
+     invariant.  This caused the encoder to write codes with the new
+     (wider) bit-width one step before the decoder was ready to read at
+     that width, silently corrupting all frames with more than ~254 unique
+     colour sequences.  Fix: change the encoder bump condition to
+     `next > (1 << cs)` so it fires one step later and aligns with the
+     decoder's bump.
+  2. **GPU readback on macOS Metal** — `getImageData` does not flush the
+     GPU pipeline on Metal-backed canvases, so only CPU-rendered content
+     (text labels) was captured.  Fix: after rendering, await
+     `requestAnimationFrame` (GPU commands complete), call
+     `canvas.toDataURL()` to read back the PNG, decode it CPU-side with
+     `img.decode()`, draw onto a `willReadFrequently` canvas, and call
+     `getImageData` — the CPU-decoded `<img>` source means no GPU flush
+     is required on the readback canvas
 
 ### Papers
 

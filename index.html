@@ -613,6 +613,11 @@
             <input type="checkbox" id="xdk-show-evens" checked> evens
           </label>
           <button class="btn-secondary" id="xdk-cycle-btn">Cycle</button>
+          <label style="font-size: 12px; color: #555; display: flex; align-items: center; gap: 3px;">
+            <input type="number" id="gif-delay" value="1333" min="100" max="5000" step="100"
+              style="width: 52px; padding: 2px 4px; font-size: 12px; border: 1px solid #ccc; border-radius: 3px;"> ms
+          </label>
+          <button class="btn-secondary" id="gif-btn" title="Download animated GIF of one full cycle">GIF</button>
           <button class="btn-secondary" id="popout-xdk-btn" title="Pop out to separate window (exit fullscreen first)" style="font-size: 16px; padding: 4px 8px; min-width: 32px;">&#x29c9;</button>
         </div>
       </div>
@@ -2318,6 +2323,157 @@
         if (!summaryDiv) return;
 
         summaryDiv.textContent = `Showing metrics for ${currentIndex + 2} states (initial + ${currentIndex + 1} actions)`;
+      }
+    }
+
+    // ========== Animated GIF Encoder ==========
+    class GifEncoder {
+      constructor(width, height) {
+        this.width = width;
+        this.height = height;
+        this._frames = [];
+      }
+
+      addFrame(imageData, delayCs) {
+        this._frames.push({ imageData, delayCs });
+      }
+
+      encode() {
+        if (!this._frames.length) return new Uint8Array(0);
+
+        // --- Build global palette from all frames (popularity algorithm) ---
+        const freq = new Map();
+        for (const { imageData } of this._frames) {
+          const d = imageData.data;
+          for (let i = 0; i < d.length; i += 4) {
+            const a = d[i + 3] / 255;
+            const r = Math.round(d[i]     * a + 255 * (1 - a));
+            const g = Math.round(d[i + 1] * a + 255 * (1 - a));
+            const b = Math.round(d[i + 2] * a + 255 * (1 - a));
+            const k = (r << 16) | (g << 8) | b;
+            freq.set(k, (freq.get(k) || 0) + 1);
+          }
+        }
+        const pal = [...freq.entries()]
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 256)
+          .map(([k]) => [(k >> 16) & 0xff, (k >> 8) & 0xff, k & 0xff]);
+        while (pal.length < 256) pal.push([0, 0, 0]);
+
+        // Nearest-palette-entry lookup with cache
+        const palMap = new Map();
+        for (let i = 0; i < pal.length; i++) {
+          palMap.set((pal[i][0] << 16) | (pal[i][1] << 8) | pal[i][2], i);
+        }
+        const nearest = (r, g, b) => {
+          const k = (r << 16) | (g << 8) | b;
+          if (palMap.has(k)) return palMap.get(k);
+          let best = 0, bestD = Infinity;
+          for (let i = 0; i < pal.length; i++) {
+            const dr = r - pal[i][0], dg = g - pal[i][1], db = b - pal[i][2];
+            const d = dr * dr + dg * dg + db * db;
+            if (d < bestD) { bestD = d; best = i; }
+          }
+          palMap.set(k, best);
+          return best;
+        };
+
+        // --- Assemble GIF bytes ---
+        const out = [];
+        const w16 = v => out.push(v & 0xff, (v >> 8) & 0xff);
+
+        // Header + Logical Screen Descriptor
+        'GIF89a'.split('').forEach(c => out.push(c.charCodeAt(0)));
+        w16(this.width); w16(this.height);
+        out.push(0xf7, 0x00, 0x00); // global CT flag, 256 colours, bg=0, aspect=0
+
+        // Global Colour Table
+        for (const [r, g, b] of pal) out.push(r, g, b);
+
+        // Netscape application extension (infinite loop)
+        out.push(0x21, 0xff, 0x0b);
+        'NETSCAPE2.0'.split('').forEach(c => out.push(c.charCodeAt(0)));
+        out.push(0x03, 0x01, 0x00, 0x00, 0x00);
+
+        for (const { imageData, delayCs } of this._frames) {
+          // Graphic Control Extension
+          out.push(0x21, 0xf9, 0x04, 0x00);
+          w16(delayCs);
+          out.push(0x00, 0x00);
+
+          // Image Descriptor
+          out.push(0x2c);
+          w16(0); w16(0); w16(this.width); w16(this.height);
+          out.push(0x00); // no local colour table
+
+          // Quantise pixels
+          const d = imageData.data;
+          const n = this.width * this.height;
+          const idx = new Uint8Array(n);
+          for (let i = 0; i < n; i++) {
+            const a = d[i * 4 + 3] / 255;
+            const r = Math.round(d[i * 4]     * a + 255 * (1 - a));
+            const g = Math.round(d[i * 4 + 1] * a + 255 * (1 - a));
+            const b = Math.round(d[i * 4 + 2] * a + 255 * (1 - a));
+            idx[i] = nearest(r, g, b);
+          }
+
+          // LZW-compressed image data (min code size = 8 for 256-colour palette)
+          out.push(8);
+          const lzw = this._lzw(idx, 8);
+          for (let off = 0; off < lzw.length; off += 255) {
+            const sz = Math.min(255, lzw.length - off);
+            out.push(sz);
+            for (let j = 0; j < sz; j++) out.push(lzw[off + j]);
+          }
+          out.push(0x00); // block terminator
+        }
+
+        out.push(0x3b); // GIF trailer
+        return new Uint8Array(out);
+      }
+
+      // GIF LZW encoder (min code size = minCS, palette size = 2^minCS)
+      _lzw(indices, minCS) {
+        const clear = 1 << minCS, eoi = clear + 1;
+        let cs = minCS + 1, next = eoi + 1;
+        let table = new Map();
+        let bits = 0, nBits = 0;
+        const out = [];
+
+        const emit = code => {
+          bits |= code << nBits;
+          nBits += cs;
+          while (nBits >= 8) { out.push(bits & 0xff); bits >>>= 8; nBits -= 8; }
+        };
+        const reset = () => { table = new Map(); cs = minCS + 1; next = eoi + 1; };
+
+        emit(clear);
+        let prev = indices[0];
+        for (let i = 1; i < indices.length; i++) {
+          const sym = indices[i];
+          // Key uniquely encodes (prevCode, nextSymbol): prevCode<4096, sym<256
+          const key = (prev << 8) | sym;
+          if (table.has(key)) {
+            prev = table.get(key);
+          } else {
+            emit(prev);
+            if (next < 4096) {
+              table.set(key, next++);
+              // Bump cs one step after the decoder would: the encoder is always
+              // one table entry ahead (KwKwK invariant), so use > not === here.
+              if (next > (1 << cs) && cs < 12) cs++;
+            } else {
+              emit(clear);
+              reset();
+            }
+            prev = sym;
+          }
+        }
+        emit(prev);
+        emit(eoi);
+        if (nBits > 0) out.push(bits & 0xff);
+        return out;
       }
     }
 
@@ -4797,6 +4953,119 @@
       loadP(prevP);
     }
 
+    // Download an animated GIF of one full p-cycle on the x vs Δk plot
+    async function downloadCycleGif() {
+      const p = parseP(document.getElementById('input-p').value);
+      const g = parseInt(document.getElementById('input-g').value);
+      const h = parseInt(document.getElementById('input-h').value);
+      if (isNaN(p) || p <= 0) return;
+
+      const xdkGraph = app && app.xDeltaKGraph;
+      if (!xdkGraph) return;
+
+      const btn = document.getElementById('gif-btn');
+      btn.textContent = 'Generating\u2026';
+      btn.disabled = true;
+
+      // Yield to the browser so the button label updates before heavy work
+      await new Promise(r => setTimeout(r, 0));
+
+      try {
+        const delayMs = parseInt(document.getElementById('gif-delay').value) || 1333;
+        const delayCs = Math.max(1, Math.round(delayMs / 10));
+        const pCycle = enumeratePCycle(p);
+
+        // Reliable CPU-side readback pipeline for macOS Metal:
+        //  1. requestAnimationFrame — waits for the browser to paint, which
+        //     guarantees all GPU commands from render() have been flushed.
+        //  2. canvas.toDataURL() — reads back the fully-rendered GPU canvas as PNG.
+        //  3. img.decode() — decodes the PNG in the browser's CPU image pipeline.
+        //  4. drawImage(img) onto a willReadFrequently canvas — the source is a
+        //     CPU-decoded <img>, so the draw is CPU→software and getImageData is
+        //     reliable (no GPU flush required on the readback canvas).
+        // The readback canvas is 34 px taller than the plot to hold the legend strip.
+        const legendH = 34;
+        const gifW = xdkGraph.width;
+        const gifH = xdkGraph.height + legendH;
+        const readbackCanvas = document.createElement('canvas');
+        readbackCanvas.width  = gifW;
+        readbackCanvas.height = gifH;
+        const readbackCtx = readbackCanvas.getContext('2d', { willReadFrequently: true });
+
+        const encoder = new GifEncoder(gifW, gifH);
+
+        for (const pi of pCycle) {
+          xdkGraph.lastP = null;
+          xdkGraph.render(pi, g, h, 'xdk-legend', 'xdk-summary', 'xdk-info');
+          await new Promise(r => requestAnimationFrame(r));
+          const dataUrl = xdkGraph.canvas.toDataURL();
+          const img = new Image();
+          img.src = dataUrl;
+          await img.decode();
+
+          // Draw the chart into the top portion
+          readbackCtx.clearRect(0, 0, gifW, gifH);
+          readbackCtx.drawImage(img, 0, 0);
+
+          // Legend strip — same data as updateSummary / updateInfo in the HTML panel
+          const { o, e, d, kHat, k, deltaK, deltaKMax, gamma, x0, q: qp } = xdkGraph.currentParams;
+          const isOdd = pi % 2 !== 0;
+          const baseY = xdkGraph.height;
+
+          readbackCtx.fillStyle = '#f8f8f8';
+          readbackCtx.fillRect(0, baseY, gifW, legendH);
+          readbackCtx.strokeStyle = '#ccc';
+          readbackCtx.lineWidth = 1;
+          readbackCtx.beginPath();
+          readbackCtx.moveTo(0, baseY + 0.5);
+          readbackCtx.lineTo(gifW, baseY + 0.5);
+          readbackCtx.stroke();
+
+          readbackCtx.font = '10px monospace';
+          readbackCtx.textBaseline = 'middle';
+          readbackCtx.textAlign = 'left';
+
+          // Summary line: structural params (mirrors updateSummary)
+          readbackCtx.fillStyle = '#555';
+          readbackCtx.fillText(
+            `o=${o}  e=${e}  d=${d}  k\u0302=${kHat}  \u03b3=${gamma}  \u0394k_max=${Math.round(deltaKMax)}  q=${qp}`,
+            6, baseY + 10
+          );
+
+          // Element line: current cycle point (mirrors updateInfo), coloured by parity
+          readbackCtx.fillStyle = isOdd ? '#dc2626' : '#16a34a';
+          readbackCtx.fillText(
+            `p=${pi}  k=${k}  \u0394k=${deltaK}  x=${x0}  gx+q=${g * x0 + qp}  \u25b6 ${isOdd ? 'odd p \u2192 gx+q' : 'even p \u2192 x/h'}`,
+            6, baseY + 24
+          );
+
+          encoder.addFrame(readbackCtx.getImageData(0, 0, gifW, gifH), delayCs);
+        }
+
+        // Restore original render state
+        xdkGraph.lastP = null;
+        app.render();
+
+        // Encode and trigger download
+        const bytes = encoder.encode();
+
+        const url = URL.createObjectURL(new Blob([bytes], { type: 'image/gif' }));
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `xdk-p${p}-g${g}-h${h}.gif`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+      } catch (err) {
+        console.error('[GIF] generation failed:', err);
+        alert('GIF generation failed: ' + err.message);
+      } finally {
+        btn.textContent = 'GIF';
+        btn.disabled = false;
+      }
+    }
+
     // Sync all cycle button labels
     function updateAllCycleBtns(text) {
       ['cycle-btn', 'xdk-cycle-btn'].forEach(id => {
@@ -5404,6 +5673,7 @@
       document.getElementById('next-btn').addEventListener('click', goToNextP);
       document.getElementById('cycle-btn').addEventListener('click', toggleCycle);
       document.getElementById('xdk-cycle-btn').addEventListener('click', toggleCycle);
+      document.getElementById('gif-btn').addEventListener('click', downloadCycleGif);
     });
   </script>
 </body>
