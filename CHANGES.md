@@ -21,17 +21,28 @@ where `k̂` is the minimum k-value in the cycle, `γ = gcd(k, d)`, and `Δk = k 
 
 **Reference lines**
 
-- Green line — gx+q, derived from the affine identity: (g·intercept + q) + g·slope·Δk
-- Red line — h·x, derived from the affine identity: h·intercept + h·slope·Δk
+- Red line — gx+q, derived from the affine identity: (g·intercept + q) + g·slope·Δk
+  (coloured red to match the odd/red source elements that use this step)
+- Green line — h·x, derived from the affine identity: h·intercept + h·slope·Δk
+  (coloured green to match the even/green source elements that use this step)
 
 **Guidelines on hover**
 
-When a cycle element is selected, dashed guidelines show where it is headed next:
+When a cycle element is hovered, the crosshair and ring adopt the element's parity
+colour (red for odd p, green for even p) rather than a fixed yellow.  Dashed guidelines
+show where the element is headed next:
 
-- Odd-p element (red): vertical line up to gx+q, then horizontal to the destination
-  lattice point — endpoint rendered green (the destination is a green element)
-- Even-p element (green): horizontal line to Δk(x/h), then vertical down to x/h —
-  endpoint rendered red (the destination is a red element)
+- Odd-p element (red): vertical line up to the gx+q line, then horizontal to the
+  destination lattice point on the blue cycle line.  The first guideline dot (on the
+  gx+q line) is red (source colour); the second dot (on the blue cycle line) is coloured
+  by the destination element's own parity.
+- Even-p element (green): horizontal line to the h·x line at Δk(x/h), then vertical
+  down to x/h on the blue cycle line.  The first dot (on the h·x line) is green (source
+  colour); the second dot (on the blue cycle line) is coloured by the destination
+  element's own parity.
+
+The hover info panel now leads with **p = \<value\> (odd p / even p)** in the element's
+parity colour, followed by n, Δk, x, and gx+q.
 
 **Δk_max reference line**
 
@@ -43,7 +54,7 @@ p-value elements may fall outside this bound; forced cycle elements (where p mod
 - **Evens checkbox** — show or hide even p-value elements
 - **Cycle button** — animates through the cycle, auto-tracking the current element
 - **GIF button** — downloads an animated GIF of one full cycle; a delay input (ms)
-  next to the button controls the per-frame delay (default 800 ms)
+  next to the button controls the per-frame delay (default 1333 ms, ~0.75 fps)
 - **Popout button** — opens the plot in a resizable popup window with its own Cycle button
 - **#delta-k anchor** — deep-link directly to the x vs Δk section
 

@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>x vs Δk Animation Gallery</title>
+<style>
+  body {
+    font-family: system-ui, sans-serif;
+    background: #f5f5f5;
+    color: #222;
+    margin: 0;
+    padding: 2rem;
+  }
+  h1 { margin-top: 0; }
+  .gallery { display: flex; flex-direction: column; gap: 3rem; }
+  .card {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 1.5rem;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 1.5rem;
+    align-items: start;
+  }
+  .card img { border: 1px solid #ccc; border-radius: 4px; display: block; }
+  .card-body h2 { margin: 0 0 0.75rem; font-size: 1.1rem; }
+  .params { margin: 0 0 1rem; font-size: 0.85rem; color: #444; line-height: 1.7; }
+  .params span { margin-right: 1.2em; }
+  .params .label { color: #888; }
+  table {
+    border-collapse: collapse;
+    font-size: 0.82rem;
+  }
+  th {
+    text-align: left;
+    background: #f0f0f0;
+    padding: 4px 10px;
+    border: 1px solid #ddd;
+    white-space: nowrap;
+  }
+  td {
+    padding: 3px 10px;
+    border: 1px solid #eee;
+    white-space: nowrap;
+  }
+  tr:nth-child(even) td { background: #fafafa; }
+  .odd  { color: #dc2626; font-weight: 600; }
+  .even { color: #16a34a; font-weight: 600; }
+  a { color: inherit; text-decoration: none; border-bottom: 1px dotted currentColor; }
+  a:hover { border-bottom-style: solid; }
+  .mono { font-family: monospace; }
+  @media (max-width: 700px) {
+    .card { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<h1>x vs Δk — Cycle Animation Gallery</h1>
+<p>Each animation shows one full cycle on the <em>x&nbsp;vs&nbsp;Δk</em> plot.
+   Cycle element links open the interactive explorer at that element.
+   Parameters: o = number of odd steps; e = total h-exponent; d = h<sup>e</sup>&minus;g<sup>o</sup>;
+   k&#x0302; = &sum;<sub>j</sub> g<sup>o&minus;1&minus;j</sup>h<sup>j</sup>;
+   f = gcd(k,d) (common factor of all k values; q&middot;f = d); q = d/f; x&nbsp;= k/f.</p>
+
+<div class="gallery">
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- OEEOOEEE-281-3-2  o=3 e=5 d=5 kHat=19 gamma=5 q=1 x0=5 -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="card">
+  <img src="OEEOOEEE-281-3-2.gif" alt="Cycle animation for p=281, g=3, h=2" width="700">
+  <div class="card-body">
+    <h2 class="mono">OEEOOEEE &mdash; p=281, g=3, h=2</h2>
+    <div class="params">
+      <span><span class="label">g=</span>3</span>
+      <span><span class="label">h=</span>2</span>
+      <span><span class="label">o=</span>3</span>
+      <span><span class="label">e=</span>5</span>
+      <span><span class="label">d=</span>5</span>
+      <span><span class="label">k&#x0302;=</span>19</span>
+      <span><span class="label">f=</span>5</span>
+      <span><span class="label">q=</span>1</span>
+    </div>
+    <table>
+      <thead>
+        <tr><th>p</th><th>OE</th><th>parity</th><th>x</th><th>k</th><th>Δk</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><a class="odd"  href="https://wildducktheories.github.io/collatz-as-othello/?p=281&g=3&h=2#delta-k">281</a></td><td class="mono">OEEOOEEE</td><td class="odd">odd</td>  <td>5</td>   <td>25</td>   <td>6</td></tr>
+        <tr><td><a class="even" href="https://wildducktheories.github.io/collatz-as-othello/?p=396&g=3&h=2#delta-k">396</a></td><td class="mono">EEOOEEEO</td><td class="even">even</td> <td>16</td>  <td>80</td>   <td>61</td></tr>
+        <tr><td><a class="even" href="https://wildducktheories.github.io/collatz-as-othello/?p=326&g=3&h=2#delta-k">326</a></td><td class="mono">EOOEEEOE</td><td class="even">even</td> <td>8</td>   <td>40</td>   <td>21</td></tr>
+        <tr><td><a class="odd"  href="https://wildducktheories.github.io/collatz-as-othello/?p=291&g=3&h=2#delta-k">291</a></td><td class="mono">OOEEEOEE</td><td class="odd">odd</td>  <td>4</td>   <td>20</td>   <td>1</td></tr>
+        <tr><td><a class="odd"  href="https://wildducktheories.github.io/collatz-as-othello/?p=401&g=3&h=2#delta-k">401</a></td><td class="mono">OEEEOEEO</td><td class="odd">odd</td>  <td>13</td>  <td>65</td>   <td>46</td></tr>
+        <tr><td><a class="even" href="https://wildducktheories.github.io/collatz-as-othello/?p=456&g=3&h=2#delta-k">456</a></td><td class="mono">EEEOEEOO</td><td class="even">even</td> <td>40</td>  <td>200</td>  <td>181</td></tr>
+        <tr><td><a class="even" href="https://wildducktheories.github.io/collatz-as-othello/?p=356&g=3&h=2#delta-k">356</a></td><td class="mono">EEOEEOOE</td><td class="even">even</td> <td>20</td>  <td>100</td>  <td>81</td></tr>
+        <tr><td><a class="even" href="https://wildducktheories.github.io/collatz-as-othello/?p=306&g=3&h=2#delta-k">306</a></td><td class="mono">EOEEOOEE</td><td class="even">even</td> <td>10</td>  <td>50</td>   <td>31</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- OEOEEOEE-293-3-2  o=3 e=5 d=5 kHat=19 gamma=1 q=5 x0=23 -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="card">
+  <img src="OEOEEOEE-293-3-2.gif" alt="Cycle animation for p=293, g=3, h=2" width="700">
+  <div class="card-body">
+    <h2 class="mono">OEOEEOEE &mdash; p=293, g=3, h=2</h2>
+    <div class="params">
+      <span><span class="label">g=</span>3</span>
+      <span><span class="label">h=</span>2</span>
+      <span><span class="label">o=</span>3</span>
+      <span><span class="label">e=</span>5</span>
+      <span><span class="label">d=</span>5</span>
+      <span><span class="label">k&#x0302;=</span>19</span>
+      <span><span class="label">f=</span>1</span>
+      <span><span class="label">q=</span>5</span>
+    </div>
+    <table>
+      <thead>
+        <tr><th>p</th><th>OE</th><th>parity</th><th>x</th><th>k</th><th>Δk</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><a class="odd"  href="https://wildducktheories.github.io/collatz-as-othello/?p=293&g=3&h=2#delta-k">293</a></td><td class="mono">OEOEEOEE</td><td class="odd">odd</td>  <td>23</td>  <td>23</td>   <td>4</td></tr>
+        <tr><td><a class="even" href="https://wildducktheories.github.io/collatz-as-othello/?p=402&g=3&h=2#delta-k">402</a></td><td class="mono">EOEEOEEO</td><td class="even">even</td> <td>74</td>  <td>74</td>   <td>55</td></tr>
+        <tr><td><a class="odd"  href="https://wildducktheories.github.io/collatz-as-othello/?p=329&g=3&h=2#delta-k">329</a></td><td class="mono">OEEOEEOE</td><td class="odd">odd</td>  <td>37</td>  <td>37</td>   <td>18</td></tr>
+        <tr><td><a class="even" href="https://wildducktheories.github.io/collatz-as-othello/?p=420&g=3&h=2#delta-k">420</a></td><td class="mono">EEOEEOEO</td><td class="even">even</td> <td>116</td> <td>116</td>  <td>97</td></tr>
+        <tr><td><a class="even" href="https://wildducktheories.github.io/collatz-as-othello/?p=338&g=3&h=2#delta-k">338</a></td><td class="mono">EOEEOEOE</td><td class="even">even</td> <td>58</td>  <td>58</td>   <td>39</td></tr>
+        <tr><td><a class="odd"  href="https://wildducktheories.github.io/collatz-as-othello/?p=297&g=3&h=2#delta-k">297</a></td><td class="mono">OEEOEOEE</td><td class="odd">odd</td>  <td>29</td>  <td>29</td>   <td>10</td></tr>
+        <tr><td><a class="even" href="https://wildducktheories.github.io/collatz-as-othello/?p=404&g=3&h=2#delta-k">404</a></td><td class="mono">EEOEOEEO</td><td class="even">even</td> <td>92</td>  <td>92</td>   <td>73</td></tr>
+        <tr><td><a class="even" href="https://wildducktheories.github.io/collatz-as-othello/?p=330&g=3&h=2#delta-k">330</a></td><td class="mono">EOEOEEOE</td><td class="even">even</td> <td>46</td>  <td>46</td>   <td>27</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- OOOEEEOEEEE-2119-3-2  o=4 e=7 d=47 kHat=65 gamma=47 q=1 x0=1 -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="card">
+  <img src="OOOEEEOEEEE-2119-3-2.gif" alt="Cycle animation for p=2119, g=3, h=2" width="700">
+  <div class="card-body">
+    <h2 class="mono">OOOEEEOEEEE &mdash; p=2119, g=3, h=2</h2>
+    <div class="params">
+      <span><span class="label">g=</span>3</span>
+      <span><span class="label">h=</span>2</span>
+      <span><span class="label">o=</span>4</span>
+      <span><span class="label">e=</span>7</span>
+      <span><span class="label">d=</span>47</span>
+      <span><span class="label">k&#x0302;=</span>65</span>
+      <span><span class="label">f=</span>47</span>
+      <span><span class="label">q=</span>1</span>
+    </div>
+    <table>
+      <thead>
+        <tr><th>p</th><th>OE</th><th>parity</th><th>x</th><th>k</th><th>Δk</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><a class="odd"  href="https://wildducktheories.github.io/collatz-as-othello/?p=2119&g=3&h=2#delta-k">2119</a></td><td class="mono">OOOEEEOEEEE</td> <td class="odd">odd</td>  <td>1</td>   <td>47</td>   <td>&minus;18</td></tr>
+        <tr><td><a class="odd"  href="https://wildducktheories.github.io/collatz-as-othello/?p=3107&g=3&h=2#delta-k">3107</a></td><td class="mono">OOEEEOEEEEO</td> <td class="odd">odd</td>  <td>4</td>   <td>188</td>  <td>123</td></tr>
+        <tr><td><a class="odd"  href="https://wildducktheories.github.io/collatz-as-othello/?p=3601&g=3&h=2#delta-k">3601</a></td><td class="mono">OEEEOEEEEOO</td> <td class="odd">odd</td>  <td>13</td>  <td>611</td>  <td>546</td></tr>
+        <tr><td><a class="even" href="https://wildducktheories.github.io/collatz-as-othello/?p=3848&g=3&h=2#delta-k">3848</a></td><td class="mono">EEEOEEEEOOO</td> <td class="even">even</td> <td>40</td>  <td>1880</td> <td>1815</td></tr>
+        <tr><td><a class="even" href="https://wildducktheories.github.io/collatz-as-othello/?p=2948&g=3&h=2#delta-k">2948</a></td><td class="mono">EEOEEEEOOOE</td> <td class="even">even</td> <td>20</td>  <td>940</td>  <td>875</td></tr>
+        <tr><td><a class="even" href="https://wildducktheories.github.io/collatz-as-othello/?p=2498&g=3&h=2#delta-k">2498</a></td><td class="mono">EOEEEEOOOEE</td> <td class="even">even</td> <td>10</td>  <td>470</td>  <td>405</td></tr>
+        <tr><td><a class="odd"  href="https://wildducktheories.github.io/collatz-as-othello/?p=2273&g=3&h=2#delta-k">2273</a></td><td class="mono">OEEEEOOOEEE</td> <td class="odd">odd</td>  <td>5</td>   <td>235</td>  <td>170</td></tr>
+        <tr><td><a class="even" href="https://wildducktheories.github.io/collatz-as-othello/?p=3184&g=3&h=2#delta-k">3184</a></td><td class="mono">EEEEOOOEEEO</td> <td class="even">even</td> <td>16</td>  <td>752</td>  <td>687</td></tr>
+        <tr><td><a class="even" href="https://wildducktheories.github.io/collatz-as-othello/?p=2616&g=3&h=2#delta-k">2616</a></td><td class="mono">EEEOOOEEEOE</td> <td class="even">even</td> <td>8</td>   <td>376</td>  <td>311</td></tr>
+        <tr><td><a class="even" href="https://wildducktheories.github.io/collatz-as-othello/?p=2332&g=3&h=2#delta-k">2332</a></td><td class="mono">EEOOOEEEOEE</td> <td class="even">even</td> <td>4</td>   <td>188</td>  <td>123</td></tr>
+        <tr><td><a class="even" href="https://wildducktheories.github.io/collatz-as-othello/?p=2190&g=3&h=2#delta-k">2190</a></td><td class="mono">EOOOEEEOEEE</td> <td class="even">even</td> <td>2</td>   <td>94</td>   <td>29</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- OEOOEOOEEEEEE-8301-3-2  o=5 e=8 d=13 kHat=211 gamma=13 q=1 x0=13 -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="card">
+  <img src="OEOOEOOEEEEEE-8301-3-2.gif" alt="Cycle animation for p=8301, g=3, h=2" width="700">
+  <div class="card-body">
+    <h2 class="mono">OEOOEOOEEEEEE &mdash; p=8301, g=3, h=2</h2>
+    <div class="params">
+      <span><span class="label">g=</span>3</span>
+      <span><span class="label">h=</span>2</span>
+      <span><span class="label">o=</span>5</span>
+      <span><span class="label">e=</span>8</span>
+      <span><span class="label">d=</span>13</span>
+      <span><span class="label">k&#x0302;=</span>211</span>
+      <span><span class="label">f=</span>13</span>
+      <span><span class="label">q=</span>1</span>
+    </div>
+    <table>
+      <thead>
+        <tr><th>p</th><th>OE</th><th>parity</th><th>x</th><th>k</th><th>Δk</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><a class="odd"  href="https://wildducktheories.github.io/collatz-as-othello/?p=8301&g=3&h=2#delta-k">8301</a></td>  <td class="mono">OEOOEOOEEEEEE</td>  <td class="odd">odd</td>  <td>13</td>  <td>169</td>   <td>&minus;42</td></tr>
+        <tr><td><a class="even" href="https://wildducktheories.github.io/collatz-as-othello/?p=12342&g=3&h=2#delta-k">12342</a></td> <td class="mono">EOOEOOEEEEEEO</td>  <td class="even">even</td> <td>40</td>  <td>520</td>   <td>309</td></tr>
+        <tr><td><a class="odd"  href="https://wildducktheories.github.io/collatz-as-othello/?p=10267&g=3&h=2#delta-k">10267</a></td> <td class="mono">OOEOOEEEEEEOE</td>  <td class="odd">odd</td>  <td>20</td>  <td>260</td>   <td>49</td></tr>
+        <tr><td><a class="odd"  href="https://wildducktheories.github.io/collatz-as-othello/?p=13325&g=3&h=2#delta-k">13325</a></td> <td class="mono">OEOOEEEEEEOEO</td>  <td class="odd">odd</td>  <td>61</td>  <td>793</td>   <td>582</td></tr>
+        <tr><td><a class="even" href="https://wildducktheories.github.io/collatz-as-othello/?p=14854&g=3&h=2#delta-k">14854</a></td> <td class="mono">EOOEEEEEEOEOO</td>  <td class="even">even</td> <td>184</td> <td>2392</td>  <td>2181</td></tr>
+        <tr><td><a class="odd"  href="https://wildducktheories.github.io/collatz-as-othello/?p=11523&g=3&h=2#delta-k">11523</a></td> <td class="mono">OOEEEEEEOEOOE</td>  <td class="odd">odd</td>  <td>92</td>  <td>1196</td>  <td>985</td></tr>
+        <tr><td><a class="odd"  href="https://wildducktheories.github.io/collatz-as-othello/?p=13953&g=3&h=2#delta-k">13953</a></td> <td class="mono">OEEEEEEOEOOEO</td>  <td class="odd">odd</td>  <td>277</td> <td>3601</td>  <td>3390</td></tr>
+        <tr><td><a class="even" href="https://wildducktheories.github.io/collatz-as-othello/?p=15168&g=3&h=2#delta-k">15168</a></td> <td class="mono">EEEEEEOEOOEOO</td>  <td class="even">even</td> <td>832</td> <td>10816</td> <td>10605</td></tr>
+        <tr><td><a class="even" href="https://wildducktheories.github.io/collatz-as-othello/?p=11680&g=3&h=2#delta-k">11680</a></td> <td class="mono">EEEEEOEOOEOOE</td>  <td class="even">even</td> <td>416</td> <td>5408</td>  <td>5197</td></tr>
+        <tr><td><a class="even" href="https://wildducktheories.github.io/collatz-as-othello/?p=9936&g=3&h=2#delta-k">9936</a></td>   <td class="mono">EEEEOEOOEOOEE</td>  <td class="even">even</td> <td>208</td> <td>2704</td>  <td>2493</td></tr>
+        <tr><td><a class="even" href="https://wildducktheories.github.io/collatz-as-othello/?p=9064&g=3&h=2#delta-k">9064</a></td>   <td class="mono">EEEOEOOEOOEEE</td>  <td class="even">even</td> <td>104</td> <td>1352</td>  <td>1141</td></tr>
+        <tr><td><a class="even" href="https://wildducktheories.github.io/collatz-as-othello/?p=8628&g=3&h=2#delta-k">8628</a></td>   <td class="mono">EEOEOOEOOEEEE</td>  <td class="even">even</td> <td>52</td>  <td>676</td>   <td>465</td></tr>
+        <tr><td><a class="even" href="https://wildducktheories.github.io/collatz-as-othello/?p=8410&g=3&h=2#delta-k">8410</a></td>   <td class="mono">EOEOOEOOEEEEE</td>  <td class="even">even</td> <td>26</td>  <td>338</td>   <td>127</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+</div><!-- .gallery -->
+</body>
+</html>
